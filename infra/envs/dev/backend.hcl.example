@@ -1,0 +1,20 @@
+# Copy to backend.hcl and fill in the account id. backend.hcl is gitignored.
+#
+# R2 credentials come from the environment, not this file:
+#   AWS_ACCESS_KEY_ID
+#   AWS_SECRET_ACCESS_KEY
+#
+# OpenTofu's S3 backend uses conditional writes for locking, which R2 supports.
+
+bucket = "workerbee-tofu-state"
+key    = "envs/dev/terraform.tfstate"
+region = "auto"
+
+endpoints = {
+  s3 = "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+}
+
+skip_credentials_validation = true
+skip_region_validation      = true
+skip_requesting_account_id  = true
+use_lockfile                = true
