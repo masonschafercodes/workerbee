@@ -1,5 +1,6 @@
 import { apiKey } from "@better-auth/api-key"
 import { schema, type Database } from "@workerbee/db"
+import { newId } from "@workerbee/domain"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { jwt, organization } from "better-auth/plugins"
@@ -24,6 +25,16 @@ export function createAuth({ db, secret, baseURL }: AuthDeps) {
     baseURL,
     secret,
     database: drizzleAdapter(db, { provider: "pg", schema }),
+    advanced: {
+      database: {
+        // Domain ids are UUIDv7 so every table shares one time-ordered scheme.
+        // Session and verification values are secrets, so they keep UUIDv4 entropy.
+        generateId: ({ model }) =>
+          model === "session" || model === "verification"
+            ? crypto.randomUUID()
+            : newId(),
+      },
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,

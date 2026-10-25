@@ -29,7 +29,7 @@ The Cloudflare token needs, at minimum:
 - Zone: Zone, read
 
 Add Workers Scripts when the API deploys, and DNS plus Access when the web app
-gets a hostname. The provider names the missing permission when a plan fails.
+gets a hostname.
 
 ## One-time bootstrap
 
@@ -48,8 +48,8 @@ tofu -chdir=infra/bootstrap apply \
 
 Then create an R2 API token scoped to the state bucket with Object Read and
 Write. Put its key id and secret in `AWS_ACCESS_KEY_ID` and
-`AWS_SECRET_ACCESS_KEY`. This token is a dashboard action because it is the
-credential that the backend needs before OpenTofu can read anything.
+`AWS_SECRET_ACCESS_KEY`. OpenTofu cannot bootstrap its own state credentials,
+so this one token is created by hand.
 
 ```sh
 cp infra/envs/dev/backend.hcl.example infra/envs/dev/backend.hcl
@@ -89,11 +89,12 @@ export BETTER_AUTH_URL=http://localhost:3001
 bun run --cwd apps/api dev
 ```
 
-The auth end to end test only runs against a database named explicitly, so it
-cannot truncate a working database by accident:
+The integration suites run only when `TEST_DATABASE_URL` is set. They truncate
+every table in the public schema, so point them at a separate database:
 
 ```sh
-export TEST_DATABASE_URL=$DATABASE_URL
+docker exec workerbee-pg createdb -U postgres workerbee_test
+export TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/workerbee_test
 bun test
 ```
 
@@ -113,10 +114,11 @@ bun run --cwd packages/db migrate
 
 These still do not exist. Providing credentials does not produce a working app.
 
-- `wrangler.jsonc`, the generated bindings file, and the hub worker.
-- Bootstrap and `/sync` endpoints.
+- `wrangler.jsonc`, the generated bindings file, and the hub worker. The API
+  has a Worker entry point, but it has never been deployed.
 - The web app.
-- Row level security policies. The repository layer and its tenant isolation
-  tests land with the sync endpoints.
+- Row level security policies. The repository wrapper and the isolation suite
+  are in place; RLS is the database backstop that comes later.
+- Changeset pruning. The log grows until a scheduled job lands.
 
 Until those land, the `dev` apply provisions infrastructure only.

@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import type { Auth } from "@workerbee/auth"
+import type { Database } from "@workerbee/db"
 import { createApp, PROTOCOL_VERSION } from "./app"
 
 const app = createApp({
   auth: {
     handler: async () => new Response(null, { status: 501 }),
   } as unknown as Auth,
+  db: {} as unknown as Database,
   origin: "http://localhost:3001",
 })
 
@@ -27,7 +29,7 @@ describe("protocol", () => {
       protocol: PROTOCOL_VERSION,
       minClient: PROTOCOL_VERSION,
       idScheme: "uuidv7",
-      sync: { maxChangesPerChangeset: 500 },
+      sync: { maxChangesPerChangeset: 500, maxSyncLimit: 500 },
     })
   })
 })

@@ -29,7 +29,7 @@ function appFor(env: Env): ReturnType<typeof createApp> {
     baseURL: env.BETTER_AUTH_URL,
   })
 
-  cached = { key, app: createApp({ auth, origin: env.BETTER_AUTH_URL }) }
+  cached = { key, app: createApp({ auth, db, origin: env.BETTER_AUTH_URL }) }
 
   return cached.app
 }

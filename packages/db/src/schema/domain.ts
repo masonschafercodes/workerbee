@@ -31,6 +31,16 @@ export const actor = pgTable(
   (table) => [index("actor_kind_idx").on(table.kind)],
 )
 
+export const workspaceSeq = pgTable(
+  "workspace_seq",
+  {
+    workspaceId: text("workspace_id")
+      .primaryKey()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    seq: bigint("seq", { mode: "number" }).notNull().default(0),
+  },
+)
+
 export const team = pgTable(
   "team",
   {

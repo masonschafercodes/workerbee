@@ -11,9 +11,10 @@ internal tool, not a SaaS product.
 ## Status
 
 Phase 0 in progress. Landed so far: the Bun workspace, domain ids and policy, the changeset sync
-primitives, the API shell, the OpenTofu `dev` environment with its Neon project, the Drizzle schema
-with Better Auth tables, and working sign-up, sign-in, and workspace creation proven by an end to
-end test. No worker deploy, sync endpoints, or UI yet.
+primitives, the OpenTofu `dev` environment with its Neon project, the Drizzle schema with Better
+Auth tables, working sign-up, sign-in, and workspace creation, and a tenant-scoped repository with
+bootstrap and sync read paths. An isolation suite proves that no repository entry point returns
+another workspace's rows. No worker deploy or UI yet.
 
 ```sh
 bun install

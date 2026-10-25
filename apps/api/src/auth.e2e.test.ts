@@ -23,7 +23,7 @@ const ORIGIN = "http://localhost:3001"
 describeDb("auth and membership", () => {
   const { db, pool } = createDb(url ?? "postgres://unused")
   const auth = createAuth({ db, secret: SECRET, baseURL: ORIGIN })
-  const app = createApp({ auth, origin: ORIGIN })
+  const app = createApp({ auth, db, origin: ORIGIN })
 
   let userId = ""
 

@@ -18,7 +18,7 @@ const baseURL = Bun.env.BETTER_AUTH_URL ?? `http://localhost:${port}`
 
 const { db } = createDb(requireEnv("DATABASE_URL"))
 const auth = createAuth({ db, secret, baseURL })
-const app = createApp({ auth, origin: baseURL })
+const app = createApp({ auth, db, origin: baseURL })
 
 Bun.serve({
   port,
