@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792964000079,
+      "tag": "0000_new_captain_britain",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792964000166,
+      "tag": "0001_organization_slug_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792964170210,
+      "tag": "0002_windy_maestro",
+      "breakpoints": true
+    }
+  ]
+}
