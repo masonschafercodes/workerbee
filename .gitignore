@@ -1,0 +1,25 @@
+node_modules/
+dist/
+coverage/
+
+# Cloudflare and local secrets
+.dev.vars
+.env
+.env.*
+!.env.example
+.wrangler/
+
+# OpenTofu
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+**/backend.hcl
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl.tmp
+
+# editors and OS
+.DS_Store
+.idea/
+.vscode/
