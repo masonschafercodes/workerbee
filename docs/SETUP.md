@@ -89,6 +89,12 @@ export BETTER_AUTH_URL=http://localhost:3001
 bun run --cwd apps/api dev
 ```
 
+The design system gallery runs on its own:
+
+```sh
+bun run --cwd apps/design dev   # http://localhost:5173
+```
+
 The integration suites run only when `TEST_DATABASE_URL` is set. They truncate
 every table in the public schema, so point them at a separate database:
 
@@ -116,7 +122,8 @@ These still do not exist. Providing credentials does not produce a working app.
 
 - `wrangler.jsonc`, the generated bindings file, and the hub worker. The API
   has a Worker entry point, but it has never been deployed.
-- The web app.
+- The product web app. The design system gallery exists, but the issue list, boards,
+  and command palette are not built on it yet.
 - Row level security policies. The repository wrapper and the isolation suite
   are in place; RLS is the database backstop that comes later.
 - Changeset pruning. The log grows until a scheduled job lands.
