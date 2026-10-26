@@ -4,6 +4,8 @@ Use this guide after [bootstrapping OpenTofu state](SETUP.md#one-time-bootstrap)
 
 ## Prepare credentials
 
+Use a Workers Paid account. Password hashing and the API bundle exceed the Workers Free plan's 10 ms CPU budget, so sign-in fails intermittently with error 1102. The Paid plan also allows an explicit CPU limit.
+
 Run `task setup` to create `.env.dev` and a Better Auth secret. Keep Cloudflare and Neon credentials out of `.env.dev`.
 
 Set `WORKERBEE_HOSTNAME` to a bare hostname, such as `issues.example.com`, with no scheme, port, or path. Copy the deploy credential template and fill it once:
@@ -25,6 +27,8 @@ Run the deploy task:
 ```sh
 task deploy:dev
 ```
+
+`task deploy:dev` auto-approves its two OpenTofu applies so it can run non-interactively. The standalone `task infra:apply` remains interactive.
 
 The task applies the base infrastructure, renders Wrangler configs from OpenTofu outputs, migrates Neon, and deploys the hub, API, and web Workers. It then creates the Cloudflare custom domain through OpenTofu. The task verifies live updates at `https://$WORKERBEE_HOSTNAME`. If you change a hostname, the task keeps the old API origin until OpenTofu attaches the new domain. It then redeploys the API with the new origin. If a deploy step fails, rerun `task deploy:dev` to converge from the state that OpenTofu already recorded.
 

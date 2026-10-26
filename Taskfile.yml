@@ -76,7 +76,10 @@ tasks:
       - |
         smoke_url="${WORKERBEE_URL:-}"
         if [ -z "$smoke_url" ]; then
-          hostname="${WORKERBEE_HOSTNAME:-$(awk -F= '$1 == "WORKERBEE_HOSTNAME" { print $2; exit }' infra/envs/dev/deploy.env 2>/dev/null)}"
+          hostname="${WORKERBEE_HOSTNAME:-}"
+          if [ -z "$hostname" ] && [ -f infra/envs/dev/deploy.env ]; then
+            hostname="$(bash -c '. infra/envs/dev/deploy.env; printf "%s" "${WORKERBEE_HOSTNAME:-}"')"
+          fi
           if [ -z "$hostname" ]; then
             echo "Set WORKERBEE_URL or WORKERBEE_HOSTNAME in infra/envs/dev/deploy.env" >&2
             exit 1
@@ -249,7 +252,7 @@ tasks:
       - tofu -chdir=infra/envs/dev validate
 
   deploy:dev:
-    desc: Deploy dev Workers and bind the configured hostname
+    desc: Deploy dev Workers and bind the hostname, auto-approving its Tofu applies
     deps:
       - build
     cmds:
@@ -271,11 +274,10 @@ tasks:
         export CLOUDFLARE_ACCOUNT_ID="$TF_VAR_account_id"
         export CLOUDFLARE_API_TOKEN="$TF_VAR_cloudflare_api_token"
         tofu -chdir=infra/envs/dev init -input=false -backend-config=backend.hcl
-        current_hostname=$(tofu -chdir=infra/envs/dev output -raw web_hostname 2>/dev/null || true)
-        current_hostname=$(bun run scripts/normalize-hostname.ts --from-state "$current_hostname")
+        current_hostname=$(bun run scripts/tofu-dev.ts hostname)
         requested_hostname=$(bun run scripts/normalize-hostname.ts "$WORKERBEE_HOSTNAME")
         config_hostname="${current_hostname:-$requested_hostname}"
-        bun run scripts/tofu-dev.ts apply --hostname "$current_hostname"
+        bun run scripts/tofu-dev.ts apply --hostname "$current_hostname" --auto-approve
         bun run scripts/generate-wrangler-configs.ts --from-tofu --hostname "$config_hostname"
         bun run scripts/migrate-dev-db.ts
         bun run --bun wrangler deploy --config apps/hub/wrangler.generated.jsonc
@@ -283,7 +285,7 @@ tasks:
         bun run --bun wrangler deploy --config apps/api/wrangler.generated.jsonc
         bun run scripts/set-worker-secret.ts apps/api/wrangler.generated.jsonc
         bun run --bun wrangler deploy --config apps/web/wrangler.generated.jsonc
-        bun run scripts/tofu-dev.ts apply --hostname "$requested_hostname"
+        bun run scripts/tofu-dev.ts apply --hostname "$requested_hostname" --auto-approve
         bun run scripts/generate-wrangler-configs.ts --from-tofu
         if [ "$config_hostname" != "$requested_hostname" ]; then
           bun run --bun wrangler deploy --config apps/api/wrangler.generated.jsonc

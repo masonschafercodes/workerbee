@@ -1,11 +1,9 @@
-import { normalizeHostname, normalizeHostnameFromState } from "./hostname"
+import { normalizeHostname } from "./hostname"
 
-const fromState = process.argv.includes("--from-state")
-const argumentIndex = fromState ? process.argv.indexOf("--from-state") + 1 : 2
-const input = process.argv[argumentIndex]
+const input = process.argv[2]
 
 if (input === undefined) {
   throw new Error("Pass a hostname")
 }
 
-console.log(fromState ? normalizeHostnameFromState(input) : normalizeHostname(input))
+console.log(normalizeHostname(input))
