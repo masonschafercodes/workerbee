@@ -1,13 +1,20 @@
 import type { Auth } from "@workerbee/auth"
 import {
   ConflictError,
+  findMembership,
+  findWorkspaceBySlug,
+  listMemberships,
   NotFoundError,
+  TenantDb,
   type Database,
+  type TeamStateInput,
 } from "@workerbee/db"
 import {
   PRIORITIES,
+  actorId as toActorId,
   stateId as toStateId,
   teamId as toTeamId,
+  workspaceId as toWorkspaceId,
   workspaceSlug,
   type Priority,
 } from "@workerbee/domain"
@@ -22,6 +29,14 @@ import { resolveTenant } from "./tenant-context"
 export const PROTOCOL_VERSION = 1
 
 const MAX_SYNC_LIMIT = 500
+
+const DEFAULT_TEAM_STATES: readonly TeamStateInput[] = [
+  { name: "Backlog", category: "backlog", position: 0 },
+  { name: "Todo", category: "unstarted", position: 1 },
+  { name: "In Progress", category: "started", position: 2 },
+  { name: "Done", category: "done", position: 3 },
+  { name: "Canceled", category: "canceled", position: 4 },
+]
 
 export type AppDeps = {
   readonly auth: Auth
@@ -74,7 +89,7 @@ export function createApp({ auth, db, origin }: AppDeps) {
   )
 
   // Better Auth's organization routes skip the domain slug rule, so the product
-  // endpoints below are the only way to create or rename a workspace.
+  // endpoint below is the only way to create a workspace.
   app.post("/api/auth/organization/create", (c) =>
     c.json({ error: "use_workspaces_endpoint" }, 404),
   )
@@ -84,9 +99,16 @@ export function createApp({ auth, db, origin }: AppDeps) {
 
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
 
-  /**
-   * Workspace creation validates the slug before it reaches Better Auth.
-   */
+  app.get("/api/v1/workspaces", async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers })
+
+    if (session === null) {
+      return c.json({ error: "unauthorized" }, 401)
+    }
+
+    return c.json({ workspaces: await listMemberships(db, session.user.id) })
+  })
+
   app.post("/api/v1/workspaces", async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers })
 
@@ -114,9 +136,42 @@ export function createApp({ auth, db, origin }: AppDeps) {
       return c.json({ error: "invalid_slug" }, 400)
     }
 
+    const existing = await findWorkspaceBySlug(db, slug)
+
+    if (existing !== null) {
+      const membership = await findMembership(db, slug, session.user.id)
+
+      if (
+        membership === null ||
+        (membership.role !== "owner" && membership.role !== "admin")
+      ) {
+        return c.json({ error: "workspace_exists" }, 409)
+      }
+
+      const tenant = new TenantDb(db, membership.workspaceId)
+
+      await tenant.ensureTeam({
+        key: "ENG",
+        name: "Engineering",
+        actorId: toActorId(session.user.id),
+        states: DEFAULT_TEAM_STATES,
+      })
+
+      return c.json(existing)
+    }
+
     const organization = await auth.api.createOrganization({
       body: { name: body.name.trim(), slug },
       headers: c.req.raw.headers,
+    })
+
+    const tenant = new TenantDb(db, toWorkspaceId(organization.id))
+
+    await tenant.ensureTeam({
+      key: "ENG",
+      name: "Engineering",
+      actorId: toActorId(session.user.id),
+      states: DEFAULT_TEAM_STATES,
     })
 
     return c.json(organization)
@@ -224,6 +279,108 @@ export function createApp({ auth, db, origin }: AppDeps) {
     })
 
     return c.json(created, 201)
+  })
+
+  app.get("/api/v1/issues/:id", async (c) => {
+    const resolved = await resolveTenant(auth, db, c.req.raw.headers)
+
+    if (!resolved.ok) {
+      return c.json({ error: resolved.error }, resolved.status)
+    }
+
+    const issue = await resolved.context.tenant.issueById(c.req.param("id"))
+
+    if (issue === null) {
+      return c.json({ error: "not_found" }, 404)
+    }
+
+    return c.json({ issue })
+  })
+
+  app.patch("/api/v1/issues/:id", async (c) => {
+    const resolved = await resolveTenant(auth, db, c.req.raw.headers)
+
+    if (!resolved.ok) {
+      return c.json({ error: resolved.error }, resolved.status)
+    }
+
+    let body: {
+      title?: unknown
+      description?: unknown
+      stateId?: unknown
+      priority?: unknown
+      version?: unknown
+    }
+
+    try {
+      body = (await c.req.json()) as typeof body
+    } catch {
+      return c.json({ error: "invalid_json" }, 400)
+    }
+
+    let title: string | undefined
+    let description: string | undefined
+    let state: string | undefined
+    let priority: Priority | undefined
+    let version: number | undefined
+
+    if (body.title !== undefined) {
+      if (typeof body.title !== "string" || body.title.trim() === "") {
+        return c.json({ error: "invalid_title" }, 400)
+      }
+
+      title = body.title.trim()
+    }
+
+    if (body.description !== undefined) {
+      if (typeof body.description !== "string") {
+        return c.json({ error: "invalid_description" }, 400)
+      }
+
+      description = body.description
+    }
+
+    if (body.stateId !== undefined) {
+      try {
+        state = toStateId(String(body.stateId))
+      } catch {
+        return c.json({ error: "invalid_state" }, 400)
+      }
+    }
+
+    if (body.priority !== undefined) {
+      if (!isPriority(body.priority)) {
+        return c.json({ error: "invalid_priority" }, 400)
+      }
+
+      priority = body.priority
+    }
+
+    if (body.version !== undefined) {
+      if (
+        typeof body.version !== "number" ||
+        !Number.isInteger(body.version) ||
+        body.version < 1
+      ) {
+        return c.json({ error: "invalid_version" }, 400)
+      }
+
+      version = body.version
+    }
+
+    const updated = await resolved.context.tenant.updateIssue(
+      c.req.param("id"),
+      {
+        ...(title !== undefined ? { title } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(state !== undefined ? { stateId: state } : {}),
+        ...(priority !== undefined ? { priority } : {}),
+      },
+      resolved.context.principal.actorId,
+      version,
+    )
+
+    return c.json(updated)
   })
 
   app.get("/api/v1/issues/:id/comments", async (c) => {
