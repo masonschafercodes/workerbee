@@ -9,6 +9,9 @@ import {
   sql,
 } from "drizzle-orm"
 import {
+  ACTOR_KINDS,
+  PRIORITIES,
+  STATE_CATEGORIES,
   formatIdentifier,
   newId,
   teamKey,
@@ -21,6 +24,7 @@ import {
   type WorkspaceRole,
 } from "@workerbee/domain"
 import type { Change, Changeset } from "@workerbee/sync"
+import { z } from "zod"
 import type { Database } from "./client"
 import * as schema from "./schema"
 
@@ -65,6 +69,53 @@ export type IssuePatch = {
 }
 
 export type BootstrapSnapshot = Awaited<ReturnType<TenantDb["bootstrap"]>>
+
+const bootstrapSchema = z.object({
+  seq: z.number().int().nonnegative(),
+  workspace: z
+    .object({ id: z.string(), slug: z.string(), name: z.string() })
+    .nullable(),
+  teams: z.array(
+    z.object({
+      id: z.string(),
+      key: z.string(),
+      name: z.string(),
+      issueCounter: z.number().int(),
+    }),
+  ),
+  states: z.array(
+    z.object({
+      id: z.string(),
+      teamId: z.string(),
+      name: z.string(),
+      category: z.enum(STATE_CATEGORIES),
+      position: z.number().int(),
+    }),
+  ),
+  members: z.array(
+    z.object({
+      actorId: z.string(),
+      role: z.string(),
+      kind: z.enum(ACTOR_KINDS),
+      name: z.string().nullable(),
+    }),
+  ),
+  issues: z.array(
+    z.object({
+      id: z.string(),
+      teamId: z.string(),
+      number: z.number().int(),
+      identifier: z.string(),
+      title: z.string(),
+      stateId: z.string(),
+      priority: z.enum(PRIORITIES),
+      assigneeId: z.string().nullable(),
+      parentId: z.string().nullable(),
+      updatedAt: z.string(),
+      version: z.number().int(),
+    }),
+  ),
+})
 
 const issueSummaryFields = {
   id: schema.issue.id,
@@ -152,84 +203,88 @@ export class TenantDb {
   ) {}
 
   async bootstrap() {
-    // One repeatable-read snapshot, so the cursor and the rows it describes
-    // cannot come from different points in time.
-    return this.db.transaction(
-      async (tx) => {
-        const [workspace] = await tx
-          .select({ id: schema.workspace.id, slug: schema.workspace.slug, name: schema.workspace.name })
-          .from(schema.workspace)
-          .where(eq(schema.workspace.id, this.workspaceId))
-          .limit(1)
+    // One statement returns the whole snapshot, so the cursor and the rows it
+    // describes share one snapshot and the request pays one round trip.
+    const result = await this.db.execute<{ snapshot: unknown }>(sql`
+      select json_build_object(
+        'seq', coalesce(
+          (select seq from workspace_seq where workspace_id = ${this.workspaceId}),
+          0
+        ),
+        'workspace', (
+          select json_build_object('id', w.id, 'slug', w.slug, 'name', w.name)
+          from organization w
+          where w.id = ${this.workspaceId}
+        ),
+        'teams', coalesce((
+          select json_agg(
+            json_build_object(
+              'id', t.id, 'key', t.key, 'name', t.name,
+              'issueCounter', t.issue_counter
+            ) order by t.key
+          )
+          from team t
+          where t.workspace_id = ${this.workspaceId}
+        ), '[]'::json),
+        'states', coalesce((
+          select json_agg(
+            json_build_object(
+              'id', s.id, 'teamId', s.team_id, 'name', s.name,
+              'category', s.category, 'position', s.position
+            ) order by s.team_id, s.position
+          )
+          from workflow_state s
+          where s.workspace_id = ${this.workspaceId}
+        ), '[]'::json),
+        'members', coalesce((
+          select json_agg(
+            json_build_object(
+              'actorId', m.user_id, 'role', m.role,
+              'kind', a.kind, 'name', u.name
+            )
+          )
+          from member m
+          join actor a on a.id = m.user_id
+          left join "user" u on u.id = m.user_id
+          where m.organization_id = ${this.workspaceId}
+        ), '[]'::json),
+        'issues', coalesce((
+          select json_agg(
+            json_build_object(
+              'id', i.id, 'teamId', i.team_id, 'number', i.number,
+              'identifier', i.identifier, 'title', i.title, 'stateId', i.state_id,
+              'priority', i.priority, 'assigneeId', i.assignee_id,
+              'parentId', i.parent_id, 'updatedAt', i.updated_at,
+              'version', i.version
+            ) order by i.updated_at desc, i.identifier asc
+          )
+          from issue i
+          where i.workspace_id = ${this.workspaceId} and i.archived_at is null
+        ), '[]'::json)
+      ) as snapshot
+    `)
 
-        if (workspace === undefined) {
-          throw new NotFoundError("workspace")
-        }
+    const parsed = bootstrapSchema.safeParse(result.rows[0]?.snapshot)
 
-        const teams = await tx
-          .select({
-            id: schema.team.id,
-            key: schema.team.key,
-            name: schema.team.name,
-            issueCounter: schema.team.issueCounter,
-          })
-          .from(schema.team)
-          .where(eq(schema.team.workspaceId, this.workspaceId))
-          .orderBy(asc(schema.team.key))
+    if (!parsed.success) {
+      throw new Error("bootstrap returned an unexpected shape", { cause: parsed.error })
+    }
 
-        const teamIds = teams.map((team) => team.id)
+    if (parsed.data.workspace === null) {
+      throw new NotFoundError("workspace")
+    }
 
-        const states =
-          teamIds.length === 0
-            ? []
-            : await tx
-                .select({
-                  id: schema.workflowState.id,
-                  teamId: schema.workflowState.teamId,
-                  name: schema.workflowState.name,
-                  category: schema.workflowState.category,
-                  position: schema.workflowState.position,
-                })
-                .from(schema.workflowState)
-                .where(
-                  and(
-                    eq(schema.workflowState.workspaceId, this.workspaceId),
-                    inArray(schema.workflowState.teamId, teamIds),
-                  ),
-                )
-                .orderBy(asc(schema.workflowState.teamId), asc(schema.workflowState.position))
-
-        const members = await tx
-          .select({
-            actorId: schema.member.userId,
-            role: schema.member.role,
-            kind: schema.actor.kind,
-            name: schema.user.name,
-          })
-          .from(schema.member)
-          .innerJoin(schema.actor, eq(schema.actor.id, schema.member.userId))
-          .leftJoin(schema.user, eq(schema.user.id, schema.member.userId))
-          .where(eq(schema.member.organizationId, this.workspaceId))
-
-        const issues = await this.issuesQuery(tx)
-
-        const [seqRow] = await tx
-          .select({ seq: schema.workspaceSeq.seq })
-          .from(schema.workspaceSeq)
-          .where(eq(schema.workspaceSeq.workspaceId, this.workspaceId))
-          .limit(1)
-
-        return {
-          seq: seqRow?.seq ?? 0,
-          workspace,
-          teams,
-          states,
-          members: members.map((member) => ({ ...member, role: roleOf(member.role) })),
-          issues,
-        }
-      },
-      { isolationLevel: "repeatable read" },
-    )
+    return {
+      ...parsed.data,
+      members: parsed.data.members.map((member) => ({
+        ...member,
+        role: roleOf(member.role),
+      })),
+      issues: parsed.data.issues.map((issue) => ({
+        ...issue,
+        updatedAt: new Date(issue.updatedAt).toISOString(),
+      })),
+    }
   }
 
   private issuesQuery(db: Database | Transaction) {
