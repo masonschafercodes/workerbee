@@ -1,0 +1,7 @@
+{
+  "account_id": "c1db38ad9a3c27c7e07100aa33be8426",
+  "hyperdrive_id": "165b27150a1249c59c511b73a3e7b271",
+  "sync_queue_name": "workerbee-dev-sync",
+  "dead_letter_queue_name": "workerbee-dev-dead-letter",
+  "web_hostname": "workerbee.masonschafer.dev"
+}

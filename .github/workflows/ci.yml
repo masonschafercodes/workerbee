@@ -36,6 +36,13 @@ jobs:
       - run: bun test
       - run: bun run --cwd apps/design build
       - run: bun run --cwd apps/web build
+      - run: bun run wrangler types apps/api/worker-configuration.d.ts --config apps/api/wrangler.jsonc --env-interface ApiEnv --include-runtime=false --strict-vars=false --check
+      - run: bun run wrangler types apps/hub/worker-configuration.d.ts --config apps/hub/wrangler.jsonc --env-interface HubEnv --include-runtime=false --strict-vars=false --check
+      - run: bun run wrangler types apps/web/worker-configuration.d.ts --config apps/web/wrangler.jsonc --env-interface WebEnv --include-runtime=false --strict-vars=false --check
+      - run: bun run scripts/generate-wrangler-configs.ts --example
+      - run: bun run --bun wrangler deploy --dry-run --config apps/hub/wrangler.generated.jsonc
+      - run: bun run --bun wrangler deploy --dry-run --config apps/api/wrangler.generated.jsonc
+      - run: bun run --bun wrangler deploy --dry-run --config apps/web/wrangler.generated.jsonc
 
   infra:
     runs-on: ubuntu-latest

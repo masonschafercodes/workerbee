@@ -16,8 +16,9 @@ Read before changing behavior:
 ## Current state
 
 Phase 0. Sign-up, workspaces, membership, a tenant-scoped repository, bootstrap, and sync work
-against Postgres. Live updates use a local Bun adapter and have a Durable Object Worker entry, but
-the Wrangler configs and deployment are not in place yet. The design system and its gallery exist.
+against Postgres. Live updates work locally through the Bun adapter, and API, hub, and web
+Wrangler configs exist. The dev environment has not been deployed yet. The design system and its
+gallery exist.
 `apps/web` has the product shell: sign-in, workspace creation, issue list, detail panel, create
 issue, state and priority changes, and comments. There are no boards or command palette yet.
 
@@ -46,7 +47,7 @@ Task loads `.env.dev` for every command. `task setup` creates it from `.env.dev.
 If you rotate `BETTER_AUTH_SECRET`, run `task db:reset-auth` and sign in again. The stored JWKS
 keys are encrypted with the old secret.
 
-Never commit `.env.dev`, `.dev.vars`, `terraform.tfvars`, `backend.hcl`, or OpenTofu state. The credentials
+Never commit `.env.dev`, `.dev.vars`, `infra/envs/dev/deploy.env`, `terraform.tfvars`, `backend.hcl`, or OpenTofu state. The credentials
 and bootstrap order are in [Setup](docs/SETUP.md).
 
 ## Commands
@@ -68,6 +69,11 @@ and bootstrap order are in [Setup](docs/SETUP.md).
 | Auth schema | `task db:auth-schema` |
 | Infra format | `task infra:fmt` |
 | Infra validate | `task infra:validate` |
+| Infra plan, apply, and bindings | `task infra:plan`, `task infra:apply`, `task infra:bindings` |
+| Generated bindings check | `task infra:bindings:check` |
+| Wrangler validation | `task wrangler:dry-run` |
+| Deploy dev | `task deploy:dev` |
+| Smoke dev | `task smoke:dev` |
 
 `task setup` creates `workerbee_test`. The suites truncate every table in whatever
 `TEST_DATABASE_URL` points at, so do not point it at a database with data you care about.

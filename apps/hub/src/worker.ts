@@ -16,11 +16,11 @@ import { z } from "zod"
 
 type SqlStorage = {
   exec<T extends Record<string, unknown>>(query: string, ...bindings: unknown[]): Iterable<T>
-  transactionSync<T>(callback: () => T): T
 }
 
 type DurableStorage = {
   readonly sql: SqlStorage
+  transactionSync<T>(callback: () => T): T
   setAlarm(scheduledTime: number): Promise<void>
   deleteAlarm(): Promise<void>
 }
@@ -34,22 +34,13 @@ type HubState = {
   blockConcurrencyWhile(callback: () => Promise<void>): Promise<void>
 }
 
-type DurableNamespace = {
-  idFromName(name: string): unknown
-  get(id: unknown): { fetch(request: Request): Promise<Response> }
-}
-
 type QueueMessage = {
   readonly body: unknown
   ack(): void
   retry(): void
 }
 
-type Env = {
-  readonly HYPERDRIVE: { readonly connectionString: string }
-  readonly BETTER_AUTH_SECRET: string
-  readonly HUB: DurableNamespace
-}
+type Env = HubEnv & { readonly BETTER_AUTH_SECRET: string }
 
 type HubAttachment = {
   readonly teamIds: "all" | readonly string[]
@@ -68,10 +59,10 @@ function readAttachment(socket: HibernatingSocket): HubAttachment | null {
 }
 
 class SqliteBuffer implements HubBufferStorage {
-  constructor(private readonly sql: SqlStorage) {}
+  constructor(private readonly storage: DurableStorage) {}
 
   async read(): Promise<Changeset[]> {
-    const rows = this.sql.exec<{ payload: string }>(
+    const rows = this.storage.sql.exec<{ payload: string }>(
       "SELECT payload FROM hub_changesets ORDER BY seq",
     )
 
@@ -79,11 +70,11 @@ class SqliteBuffer implements HubBufferStorage {
   }
 
   async replace(changesets: readonly Changeset[]): Promise<void> {
-    this.sql.transactionSync(() => {
-      this.sql.exec("DELETE FROM hub_changesets")
+    this.storage.transactionSync(() => {
+      this.storage.sql.exec("DELETE FROM hub_changesets")
 
       for (const changeset of changesets.slice(-HUB_BUFFER_CAPACITY)) {
-        this.sql.exec(
+        this.storage.sql.exec(
           "INSERT INTO hub_changesets (seq, payload) VALUES (?, ?)",
           changeset.seq,
           JSON.stringify(changeset),
@@ -93,7 +84,7 @@ class SqliteBuffer implements HubBufferStorage {
   }
 
   async resetRequired(): Promise<boolean> {
-    const [row] = this.sql.exec<{ value: string }>(
+    const [row] = this.storage.sql.exec<{ value: string }>(
       "SELECT value FROM hub_meta WHERE key = 'reset_required' LIMIT 1",
     )
 
@@ -101,7 +92,7 @@ class SqliteBuffer implements HubBufferStorage {
   }
 
   async requireReset(): Promise<void> {
-    this.sql.exec(
+    this.storage.sql.exec(
       "INSERT INTO hub_meta (key, value) VALUES ('reset_required', 'true') " +
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     )
@@ -280,7 +271,8 @@ export class WorkspaceHub {
       this.broadcast(result)
 
       return new Response(null, { status: 204 })
-    } catch {
+    } catch (error) {
+      console.error("Hub refresh failed", error)
       return new Response("Hub refresh failed", { status: 503 })
     }
   }
@@ -290,11 +282,36 @@ export class WorkspaceHub {
       return this.core
     }
 
-    const database = createDb(this.env.HYPERDRIVE.connectionString, 1)
-    const tenant = new TenantDb(database.db, workspace)
-    this.core = new WorkspaceHubCore(new SqliteBuffer(this.state.storage.sql), tenant)
+    // Hyperdrive pools connections itself, and a Worker or Durable Object
+    // cannot reuse a socket in a later event. Open one connection per query
+    // and close it, while keeping the core so refreshes stay serialized.
+    const source = {
+      latestSeq: () => this.withTenant(workspace, (tenant) => tenant.latestSeq()),
+      changesSince: (since: number, limit: number) =>
+        this.withTenant(workspace, (tenant) => tenant.changesSince(since, limit)),
+    }
+
+    this.core = new WorkspaceHubCore(new SqliteBuffer(this.state.storage), source)
 
     return this.core
+  }
+
+  private async withTenant<T>(
+    workspace: WorkspaceId,
+    run: (tenant: TenantDb) => Promise<T>,
+  ): Promise<T> {
+    const { db, pool } = createDb(this.env.HYPERDRIVE.connectionString, 1)
+
+    try {
+      return await run(new TenantDb(db, workspace))
+    } finally {
+      try {
+        await pool.end()
+      } catch {
+        // The query result wins. Hyperdrive reaps a connection the isolate
+        // cannot close.
+      }
+    }
   }
 
   private broadcast(result: HubRefresh): void {

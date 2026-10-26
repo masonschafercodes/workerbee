@@ -264,8 +264,8 @@ between views, a palette that does everything. Concretely:
 
 **Ownership split.** OpenTofu creates account-level resources: R2 buckets, queues, Hyperdrive
 configs, DNS, Access policies, and rate limit rules. It writes their ids to
-`infra/generated/bindings.<env>.jsonc`. Wrangler deploys worker code and reads that file for
-bindings. One owner per resource, no drift.
+`infra/generated/bindings.<env>.jsonc`. The config generator merges that file into Wrangler
+configs. One owner per resource, no drift.
 
 Durable Object namespaces are the exception, and the reason is mechanical: a DO class only exists
 once a worker migration creates it, and that migration must ship with the script. So Wrangler owns
@@ -288,11 +288,13 @@ infra/
 ```
 
 State lives in R2 with `use_lockfile = true` (native conditional-write locking). Environments
-are `dev` and `prod` from the same modules. CI runs `tofu plan -detailed-exitcode` and fails the
-build when the plan is not empty, so infrastructure changes are reviewed like code.
+are `dev` and `prod` from the same modules. CI validates OpenTofu without account credentials and
+runs Wrangler dry-runs. Operators run `task infra:plan` against remote state before applying.
+`task deploy:dev` checks that the final state-backed plan is empty. Do not put provider or state
+credentials in CI.
 
 **Application secrets stay out of tofu state.** API keys, webhook HMAC secrets, and session keys go
-through `wrangler secret bulk` from CI or a password manager. The one exception is the Hyperdrive
+through `wrangler secret bulk` from the deploy environment or a password manager. The one exception is the Hyperdrive
 origin string: Hyperdrive takes the database credential inline, so it lands in state. Treat the
 state bucket as sensitive, encrypt it, and scope the API token that can read it. A secret in state
 is a secret on every laptop that ran `tofu plan`, so do not add a second exception.

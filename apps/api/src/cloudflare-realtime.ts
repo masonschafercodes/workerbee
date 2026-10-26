@@ -6,7 +6,7 @@ import type {
 } from "@workerbee/realtime"
 
 export type QueueBinding = {
-  send(message: ChangeNotification): Promise<void>
+  send(message: ChangeNotification): Promise<unknown>
 }
 
 export type HubNamespace = {
@@ -17,8 +17,8 @@ export type HubNamespace = {
 export class QueueChangePublisher implements ChangePublisher {
   constructor(private readonly queue: QueueBinding) {}
 
-  publish(notification: ChangeNotification): Promise<void> {
-    return this.queue.send(notification)
+  async publish(notification: ChangeNotification): Promise<void> {
+    await this.queue.send(notification)
   }
 }
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "workerbee-web-dev",
+  "account_id": "00000000000000000000000000000000",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-26",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api", "/api/*"],
+    "not_found_handling": "single-page-application"
+  },
+  "services": [
+    {
+      "binding": "API",
+      "service": "workerbee-api-dev"
+    }
+  ]
+}

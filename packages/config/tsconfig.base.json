@@ -20,6 +20,6 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
-    "types": ["bun"]
+    "types": ["bun", "@cloudflare/workers-types"]
   }
 }

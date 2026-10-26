@@ -1,13 +1,8 @@
-# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
-# Or pass these as TF_VAR_* environment variables in CI.
-#
-# The Neon API key is not here. Set it in the environment:
-#   export NEON_API_KEY=...
-# Find the organization id in the Neon console under Account settings.
+# This optional file is gitignored. Routine dev credentials belong in
+# infra/envs/dev/deploy.env, which Task loads for infrastructure commands.
 
-account_id           = "00000000000000000000000000000000"
-cloudflare_api_token = "replace-me"
-neon_org_id          = "org-example-00000000"
+account_id = "00000000000000000000000000000000"
+neon_org_id = "org-example-00000000"
 
 # Optional overrides.
 # neon_region = "aws-eu-central-1"
