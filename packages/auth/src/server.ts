@@ -39,6 +39,11 @@ export function createAuth({ db, secret, baseURL }: AuthDeps) {
       enabled: true,
       requireEmailVerification: false,
     },
+    session: {
+      // The signed cache skips the session lookup on each request. Membership
+      // and role still come from the database, so authorization stays current.
+      cookieCache: { enabled: true, maxAge: 60 },
+    },
     plugins: [organization(), apiKey(), jwt()],
     databaseHooks: {
       user: {

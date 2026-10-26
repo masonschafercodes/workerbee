@@ -229,6 +229,9 @@ agents and CI. `mcp` plus `jwt` covers external MCP clients with CIMD. An agent 
 user with `isAgent: true` and no credential provider, created through an admin endpoint. The
 `actor` projection gives it a domain id, and `apiKey` gives it a credential.
 
+Session lookups use Better Auth's signed cookie cache for 60 seconds, so a revoked session can
+stay usable for that window. Membership and roles are still read from Postgres on every request.
+
 **Authorization is ours.** Team scope, private teams, issue visibility, and agent scopes are
 product semantics, not auth plumbing. They live in `packages/domain/policy` as pure functions
 over `(actor, workspace, team, issue, action)`. Better Auth org roles are coarse: `owner`,
