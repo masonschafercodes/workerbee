@@ -16,8 +16,10 @@ Read before changing behavior:
 ## Current state
 
 Phase 0. Sign-up, workspaces, membership, a tenant-scoped repository, bootstrap, and sync work
-against Postgres. The design system and its gallery exist. There is no `wrangler.jsonc`, no
-deployed Worker, and no product UI yet.
+against Postgres. The design system and its gallery exist. `apps/web` has the product shell:
+sign-in, workspace creation, issue list, detail panel, create issue, state and priority changes,
+and comments. There is no `wrangler.jsonc`, no deployed Worker, no live updates, and no boards or
+command palette yet.
 
 ## Setup
 
@@ -37,9 +39,13 @@ export DATABASE_URL=postgres://postgres:postgres@localhost:5432/workerbee
 bun run --cwd packages/db migrate
 
 export BETTER_AUTH_SECRET=$(openssl rand -base64 32)
-export BETTER_AUTH_URL=http://localhost:3001
-bun run --cwd apps/api dev
+export BETTER_AUTH_URL=http://localhost:5173
+
+bun run --cwd apps/api dev   # terminal 1
+bun run --cwd apps/web dev   # terminal 2
 ```
+
+The web app proxies `/api` to port 3001. Set `BETTER_AUTH_URL` to the origin you open.
 
 | Variable | Used by | Notes |
 | --- | --- | --- |
@@ -60,6 +66,7 @@ and bootstrap order are in [Setup](docs/SETUP.md).
 | Typecheck only | `bun run typecheck` |
 | Tests | `bun test` |
 | API dev server | `bun run --cwd apps/api dev` |
+| Web app | `bun run --cwd apps/web dev` |
 | Design gallery | `bun run --cwd apps/design dev` |
 | Gallery build | `bun run --cwd apps/design build` |
 | Generate a migration | `bun run --cwd packages/db generate` |
@@ -86,6 +93,7 @@ bunx --bun auth@1.7.13 generate --cwd packages/auth --config src/cli.ts \
 | Path | Owns |
 | --- | --- |
 | `apps/api` | Hono routes, auth mount, tenant resolution, Worker and Bun entries |
+| `apps/web` | Product shell: auth, workspace, issue list, detail, comments |
 | `apps/design` | Component gallery, design review target |
 | `packages/domain` | Ids, actors, roles, policy, issue and team rules. No IO |
 | `packages/db` | Drizzle schema, migrations, `TenantDb`, isolation probes |
@@ -187,7 +195,8 @@ bunx --bun auth@1.7.13 generate --cwd packages/auth --config src/cli.ts \
   `TEST_DATABASE_URL`.
 - Test behavior, not implementation. A test that cannot fail when the feature breaks is not a test.
 - Reproduce a bug in a user-shaped path before fixing it.
-- UI verification is blackbox: gallery, keyboard, axe, screenshots at 390px and 1280px.
+- UI verification is blackbox: gallery or product flow, keyboard, axe, screenshots at 390px
+  and 1280px.
 - Do not mock Postgres. Integration suites run against a real database and truncate it.
 - The token lint and the listed tenant probes are gates. A new repository method escapes the probe
   suite until you add it, so the probe list is part of the change. Do not weaken either gate.

@@ -85,9 +85,14 @@ Then run the API:
 
 ```sh
 export BETTER_AUTH_SECRET=$(openssl rand -base64 32)
-export BETTER_AUTH_URL=http://localhost:3001
-bun run --cwd apps/api dev
+export BETTER_AUTH_URL=http://localhost:5173
+
+bun run --cwd apps/api dev   # terminal 1
+bun run --cwd apps/web dev   # terminal 2
 ```
+
+Open `http://localhost:5173`. Vite proxies `/api` to the API on port 3001, so cookies and
+the origin check use the web origin. Set `BETTER_AUTH_URL` to whichever origin you open.
 
 The design system gallery runs on its own:
 
@@ -122,8 +127,8 @@ These still do not exist. Providing credentials does not produce a working app.
 
 - `wrangler.jsonc`, the generated bindings file, and the hub worker. The API
   has a Worker entry point, but it has never been deployed.
-- The product web app. The design system gallery exists, but the issue list, boards,
-  and command palette are not built on it yet.
+- Boards, the command palette, and live updates. The issue list and detail panel
+  work against the API, but the hub and WebSocket are not built yet.
 - Row level security policies. The repository wrapper and the isolation suite
   are in place; RLS is the database backstop that comes later.
 - Changeset pruning. The log grows until a scheduled job lands.
