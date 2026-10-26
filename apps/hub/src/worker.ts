@@ -19,7 +19,11 @@ type SqlStorage = {
   transactionSync<T>(callback: () => T): T
 }
 
-type DurableStorage = { readonly sql: SqlStorage }
+type DurableStorage = {
+  readonly sql: SqlStorage
+  setAlarm(scheduledTime: number): Promise<void>
+  deleteAlarm(): Promise<void>
+}
 
 type HibernatingSocket = WebSocket
 
@@ -49,10 +53,12 @@ type Env = {
 
 type HubAttachment = {
   readonly teamIds: "all" | readonly string[]
+  readonly expiresAt: number
 }
 
 const attachmentSchema = z.object({
   teamIds: z.union([z.literal("all"), z.array(z.string().min(1).max(64)).max(500)]),
+  expiresAt: z.number().int().positive(),
 })
 
 function readAttachment(socket: HibernatingSocket): HubAttachment | null {
@@ -165,6 +171,11 @@ export class WorkspaceHub {
 
   async webSocketClose(): Promise<void> {}
 
+  async alarm(): Promise<void> {
+    await this.ready
+    await this.scheduleNextExpiration()
+  }
+
   async webSocketError(socket: HibernatingSocket): Promise<void> {
     socket.close(1011, "Socket error")
   }
@@ -221,7 +232,14 @@ export class WorkspaceHub {
     const client = pair[0]
     const server = pair[1]
     this.state.acceptWebSocket(server)
-    server.serializeAttachment({ teamIds: ticket.teamIds })
+    server.serializeAttachment({ teamIds: ticket.teamIds, expiresAt: ticket.expiresAt })
+
+    try {
+      await this.scheduleNextExpiration()
+    } catch {
+      server.close(1011, "Could not schedule ticket expiry")
+      return new Response("Realtime unavailable", { status: 503 })
+    }
 
     try {
       const replay = await this.coreFor(workspace).replayWithRefresh(since, ticket.teamIds)
@@ -292,6 +310,11 @@ export class WorkspaceHub {
         continue
       }
 
+      if (attachment.expiresAt <= Date.now()) {
+        socket.close(1008, "Realtime ticket expired")
+        continue
+      }
+
       if (result.kind === "reset") {
         this.send(socket, [{ type: "reset", reason: "gap" }])
         continue
@@ -305,6 +328,31 @@ export class WorkspaceHub {
           return frame === null ? [] : [frame]
         }),
       )
+    }
+  }
+
+  private async scheduleNextExpiration(): Promise<void> {
+    const now = Date.now()
+    let nextExpiry: number | null = null
+
+    for (const socket of this.state.getWebSockets()) {
+      const attachment = readAttachment(socket)
+
+      if (attachment === null || attachment.expiresAt <= now) {
+        socket.close(1008, "Realtime ticket expired")
+        continue
+      }
+
+      nextExpiry =
+        nextExpiry === null
+          ? attachment.expiresAt
+          : Math.min(nextExpiry, attachment.expiresAt)
+    }
+
+    if (nextExpiry === null) {
+      await this.state.storage.deleteAlarm()
+    } else {
+      await this.state.storage.setAlarm(nextExpiry)
     }
   }
 

@@ -56,6 +56,7 @@ class MemoryBuffer implements HubBufferStorage {
 export class LocalHub implements ChangePublisher, HubRouter {
   private readonly cores = new Map<string, WorkspaceHubCore>()
   private readonly sockets = new Map<string, Set<LocalWebSocket>>()
+  private readonly expirationTimers = new Map<LocalWebSocket, ReturnType<typeof setTimeout>>()
   private server: LocalWebSocketServer | null = null
 
   constructor(
@@ -118,12 +119,18 @@ export class LocalHub implements ChangePublisher, HubRouter {
       const clients = this.sockets.get(socket.data.workspaceId) ?? new Set()
       clients.add(socket)
       this.sockets.set(socket.data.workspaceId, clients)
+      const timeout = setTimeout(
+        () => socket.close(1008, "Realtime ticket expired"),
+        Math.max(0, socket.data.ticket.expiresAt - Date.now()),
+      )
+      this.expirationTimers.set(socket, timeout)
       void this.replayTo(socket)
     },
     message: (socket: LocalWebSocket): void => {
       socket.close(1008, "Hub is read-only")
     },
     close: (socket: LocalWebSocket): void => {
+      this.clearExpirationTimer(socket)
       const clients = this.sockets.get(socket.data.workspaceId)
       clients?.delete(socket)
 
@@ -132,6 +139,7 @@ export class LocalHub implements ChangePublisher, HubRouter {
       }
     },
     error: (_error: Error, socket: LocalWebSocket): void => {
+      this.clearExpirationTimer(socket)
       const clients = this.sockets.get(socket.data.workspaceId)
       clients?.delete(socket)
     },
@@ -153,6 +161,11 @@ export class LocalHub implements ChangePublisher, HubRouter {
   }
 
   private async replayTo(socket: LocalWebSocket): Promise<void> {
+    if (socket.data.ticket.expiresAt <= Date.now()) {
+      socket.close(1008, "Realtime ticket expired")
+      return
+    }
+
     try {
       const workspace = socket.data.workspaceId
       const replay = await this.coreFor(workspace).replayWithRefresh(
@@ -176,6 +189,11 @@ export class LocalHub implements ChangePublisher, HubRouter {
     }
 
     for (const socket of this.sockets.get(workspace) ?? []) {
+      if (socket.data.ticket.expiresAt <= Date.now()) {
+        socket.close(1008, "Realtime ticket expired")
+        continue
+      }
+
       const frames: readonly HubFrame[] =
         result.kind === "reset"
           ? [{ type: "reset", reason: "gap" }]
@@ -186,6 +204,15 @@ export class LocalHub implements ChangePublisher, HubRouter {
             })
 
       this.send(socket, frames)
+    }
+  }
+
+  private clearExpirationTimer(socket: LocalWebSocket): void {
+    const timer = this.expirationTimers.get(socket)
+
+    if (timer !== undefined) {
+      clearTimeout(timer)
+      this.expirationTimers.delete(socket)
     }
   }
 
