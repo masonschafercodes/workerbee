@@ -1,0 +1,260 @@
+@import "tailwindcss";
+
+/* The package sits outside the app root, so Tailwind must scan it explicitly. */
+@source "./**/*.{ts,tsx}";
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/jetbrains-mono/index.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Raw color values live here and nowhere else. Components use semantic utilities
+ * such as bg-surface, text-fg-muted, or text-status-done.
+ */
+:root {
+  --wb-canvas: oklch(0.975 0.003 265);
+  --wb-surface: oklch(1 0 0);
+  --wb-raised: oklch(0.995 0.001 265);
+  --wb-hover: oklch(0.955 0.004 265);
+  --wb-sunken: oklch(0.965 0.003 265);
+  --wb-overlay: oklch(1 0 0);
+  --wb-scrim: oklch(0.2 0.01 265 / 0.4);
+
+  --wb-line: oklch(0.9 0.005 265);
+  --wb-line-subtle: oklch(0.94 0.004 265);
+  --wb-line-strong: oklch(0.8 0.008 265);
+
+  --wb-fg: oklch(0.21 0.008 265);
+  --wb-fg-muted: oklch(0.44 0.01 265);
+  --wb-fg-subtle: oklch(0.46 0.01 265);
+  --wb-fg-disabled: oklch(0.72 0.006 265);
+
+  --wb-accent: oklch(0.48 0.2 285);
+  --wb-accent-solid: oklch(0.5 0.2 285);
+  --wb-accent-solid-hover: oklch(0.44 0.2 285);
+  --wb-accent-subtle: oklch(0.5 0.2 285 / 0.1);
+  --wb-on-accent: oklch(1 0 0);
+  --wb-selection: oklch(0.5 0.2 285 / 0.18);
+
+  --wb-danger: oklch(0.48 0.2 25);
+  --wb-danger-solid: oklch(0.5 0.21 25);
+  --wb-danger-solid-hover: oklch(0.44 0.21 25);
+  --wb-on-danger: oklch(1 0 0);
+
+  --wb-status-backlog: oklch(0.5 0.01 265);
+  --wb-status-unstarted: oklch(0.47 0.12 245);
+  --wb-status-started: oklch(0.5 0.13 70);
+  --wb-status-done: oklch(0.45 0.14 155);
+  --wb-status-canceled: oklch(0.6 0.008 265);
+
+  --wb-priority-urgent: oklch(0.5 0.2 32);
+  --wb-priority-high: oklch(0.52 0.15 50);
+  --wb-priority-medium: oklch(0.55 0.13 80);
+  --wb-priority-low: oklch(0.5 0.1 240);
+  --wb-priority-none: oklch(0.62 0.008 265);
+
+  --wb-shadow-popover:
+    0 12px 32px -16px oklch(0.2 0.02 265 / 0.3),
+    0 0 0 1px var(--wb-line);
+  --wb-shadow-overlay:
+    0 24px 60px -24px oklch(0.2 0.02 265 / 0.35),
+    0 0 0 1px var(--wb-line);
+
+  color-scheme: light;
+}
+
+.dark {
+  --wb-canvas: oklch(0.145 0.006 265);
+  --wb-surface: oklch(0.175 0.007 265);
+  --wb-raised: oklch(0.215 0.008 265);
+  --wb-hover: oklch(0.215 0.008 265);
+  --wb-sunken: oklch(0.125 0.006 265);
+  --wb-overlay: oklch(0.195 0.008 265);
+  --wb-scrim: oklch(0.08 0.01 265 / 0.6);
+
+  --wb-line: oklch(1 0 0 / 0.1);
+  --wb-line-subtle: oklch(1 0 0 / 0.06);
+  --wb-line-strong: oklch(1 0 0 / 0.18);
+
+  --wb-fg: oklch(0.96 0.002 265);
+  --wb-fg-muted: oklch(0.72 0.008 265);
+  --wb-fg-subtle: oklch(0.64 0.009 265);
+  --wb-fg-disabled: oklch(0.42 0.008 265);
+
+  --wb-accent: oklch(0.74 0.16 285);
+  --wb-accent-solid: oklch(0.52 0.19 285);
+  --wb-accent-solid-hover: oklch(0.46 0.19 285);
+  --wb-accent-subtle: oklch(0.66 0.19 285 / 0.18);
+  --wb-on-accent: oklch(1 0 0);
+  --wb-selection: oklch(0.66 0.19 285 / 0.28);
+
+  --wb-danger: oklch(0.7 0.19 25);
+  --wb-danger-solid: oklch(0.5 0.21 25);
+  --wb-danger-solid-hover: oklch(0.44 0.21 25);
+  --wb-on-danger: oklch(1 0 0);
+
+  --wb-status-backlog: oklch(0.62 0.01 265);
+  --wb-status-unstarted: oklch(0.7 0.1 245);
+  --wb-status-started: oklch(0.78 0.14 80);
+  --wb-status-done: oklch(0.72 0.15 155);
+  --wb-status-canceled: oklch(0.5 0.008 265);
+
+  --wb-priority-urgent: oklch(0.7 0.19 35);
+  --wb-priority-high: oklch(0.75 0.15 55);
+  --wb-priority-medium: oklch(0.8 0.13 90);
+  --wb-priority-low: oklch(0.68 0.09 240);
+  --wb-priority-none: oklch(0.5 0.008 265);
+
+  --wb-shadow-popover:
+    0 12px 32px -16px oklch(0 0 0 / 0.6),
+    0 0 0 1px var(--wb-line);
+  --wb-shadow-overlay:
+    0 24px 60px -24px oklch(0 0 0 / 0.7),
+    0 0 0 1px var(--wb-line);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+
+  --color-canvas: var(--wb-canvas);
+  --color-surface: var(--wb-surface);
+  --color-raised: var(--wb-raised);
+  --color-hover: var(--wb-hover);
+  --color-sunken: var(--wb-sunken);
+  --color-overlay: var(--wb-overlay);
+  --color-scrim: var(--wb-scrim);
+
+  --color-line: var(--wb-line);
+  --color-line-subtle: var(--wb-line-subtle);
+  --color-line-strong: var(--wb-line-strong);
+
+  --color-fg: var(--wb-fg);
+  --color-fg-muted: var(--wb-fg-muted);
+  --color-fg-subtle: var(--wb-fg-subtle);
+  --color-fg-disabled: var(--wb-fg-disabled);
+
+  --color-accent: var(--wb-accent);
+  --color-accent-solid: var(--wb-accent-solid);
+  --color-accent-solid-hover: var(--wb-accent-solid-hover);
+  --color-accent-subtle: var(--wb-accent-subtle);
+  --color-on-accent: var(--wb-on-accent);
+
+  --color-danger: var(--wb-danger);
+  --color-danger-solid: var(--wb-danger-solid);
+  --color-danger-solid-hover: var(--wb-danger-solid-hover);
+  --color-on-danger: var(--wb-on-danger);
+
+  --color-status-backlog: var(--wb-status-backlog);
+  --color-status-unstarted: var(--wb-status-unstarted);
+  --color-status-started: var(--wb-status-started);
+  --color-status-done: var(--wb-status-done);
+  --color-status-canceled: var(--wb-status-canceled);
+
+  --color-priority-urgent: var(--wb-priority-urgent);
+  --color-priority-high: var(--wb-priority-high);
+  --color-priority-medium: var(--wb-priority-medium);
+  --color-priority-low: var(--wb-priority-low);
+  --color-priority-none: var(--wb-priority-none);
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+
+  --shadow-popover: var(--wb-shadow-popover);
+  --shadow-overlay: var(--wb-shadow-overlay);
+
+  --ease-soft: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--wb-line-subtle);
+  }
+
+  body {
+    background-color: var(--wb-canvas);
+    color: var(--wb-fg);
+    font-family: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    letter-spacing: inherit;
+  }
+
+  ::selection {
+    background-color: var(--wb-selection);
+  }
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--wb-ring, var(--wb-accent));
+    outline-offset: 2px;
+  }
+}
+
+@utility focus-ring-inset {
+  &:focus-visible {
+    outline: 2px solid var(--wb-ring, var(--wb-accent));
+    outline-offset: -2px;
+  }
+}
+
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--wb-line-strong);
+    background-clip: content-box;
+    border: 3px solid transparent;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
