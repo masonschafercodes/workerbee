@@ -15,12 +15,8 @@ Read before changing behavior:
 
 ## Current state
 
-Phase 0. Sign-up, workspaces, membership, a tenant-scoped repository, bootstrap, and sync work
-against Postgres. Live updates work locally through the Bun adapter, and API, hub, and web
-Wrangler configs exist. The dev environment has not been deployed yet. The design system and its
-gallery exist.
-`apps/web` has the product shell: sign-in, workspace creation, issue list, detail panel, create
-issue, state and priority changes, and comments. There are no boards or command palette yet.
+See [Plan: current phase](docs/PLAN.md#current-phase) for the phase, what has landed, and what is
+still open. Update that section when a slice lands instead of restating status here.
 
 ## Setup
 
