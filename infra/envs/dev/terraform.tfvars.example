@@ -5,5 +5,5 @@ account_id = "00000000000000000000000000000000"
 neon_org_id = "org-example-00000000"
 
 # Optional overrides.
-# neon_region = "aws-eu-central-1"
+# neon_region = "aws-us-east-2"
 # name_prefix = "workerbee-dev"
