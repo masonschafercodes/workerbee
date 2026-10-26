@@ -59,7 +59,7 @@ Rollback to the last known-good version id:
 bun run wrangler rollback VERSION_ID --config apps/web/wrangler.generated.jsonc --yes
 ```
 
-Repeat the command with the API or hub config if that Worker also needs a rollback. Keep the API, hub, and web versions compatible. A rollback does not remove Durable Object migrations or SQLite data. Keep hub schema changes additive so the previous Worker version can read them.
+Repeat the command with the API or hub config if that Worker also needs a rollback. Keep the API, hub, and web versions compatible. After a hostname change, do not roll the API back to a version with the old `BETTER_AUTH_URL`. Redeploy the previous API source with the current generated Wrangler config instead. A rollback does not remove Durable Object migrations or SQLite data. Keep hub schema changes additive so the previous Worker version can read them.
 
 ## Roll back infrastructure
 

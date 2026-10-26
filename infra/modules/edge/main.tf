@@ -14,6 +14,10 @@ resource "cloudflare_workers_custom_domain" "this" {
   account_id = var.account_id
   hostname   = var.hostname
   service    = var.service
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 output "hostname" {
