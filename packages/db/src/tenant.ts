@@ -15,6 +15,7 @@ import {
   workspaceId as toWorkspaceId,
   type ActorId,
   type Priority,
+  type StateCategory,
   type TeamId,
   type WorkspaceId,
   type WorkspaceRole,
@@ -38,6 +39,12 @@ export class ConflictError extends Error {
 }
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0]
+
+export type TeamStateInput = {
+  readonly name: string
+  readonly category: StateCategory
+  readonly position: number
+}
 
 export type CreateIssueInput = {
   readonly teamId: TeamId
@@ -197,9 +204,11 @@ export class TenantDb {
             actorId: schema.member.userId,
             role: schema.member.role,
             kind: schema.actor.kind,
+            name: schema.user.name,
           })
           .from(schema.member)
           .innerJoin(schema.actor, eq(schema.actor.id, schema.member.userId))
+          .leftJoin(schema.user, eq(schema.user.id, schema.member.userId))
           .where(eq(schema.member.organizationId, this.workspaceId))
 
         const issues = await this.issuesQuery(tx)
@@ -256,11 +265,13 @@ export class TenantDb {
         id: schema.comment.id,
         issueId: schema.comment.issueId,
         authorId: schema.comment.authorId,
+        authorName: schema.user.name,
         body: schema.comment.body,
         createdAt: schema.comment.createdAt,
         editedAt: schema.comment.editedAt,
       })
       .from(schema.comment)
+      .leftJoin(schema.user, eq(schema.user.id, schema.comment.authorId))
       .where(
         and(
           eq(schema.comment.workspaceId, this.workspaceId),
@@ -406,6 +417,22 @@ export class TenantDb {
       }
 
       if (patch.stateId !== undefined && patch.stateId !== existing.stateId) {
+        const [state] = await tx
+          .select({ id: schema.workflowState.id })
+          .from(schema.workflowState)
+          .where(
+            and(
+              eq(schema.workflowState.workspaceId, this.workspaceId),
+              eq(schema.workflowState.teamId, existing.teamId),
+              eq(schema.workflowState.id, patch.stateId),
+            ),
+          )
+          .limit(1)
+
+        if (state === undefined) {
+          throw new NotFoundError("state")
+        }
+
         changes.stateId = patch.stateId
       }
 
@@ -447,6 +474,102 @@ export class TenantDb {
       ])
 
       return { issue: updated, seq }
+    })
+  }
+
+  async ensureTeam(input: {
+    key: string
+    name: string
+    actorId: ActorId
+    states: readonly TeamStateInput[]
+  }) {
+    return this.db.transaction(async (tx) => {
+      const key = teamKey(input.key)
+      const byKey = and(
+        eq(schema.team.workspaceId, this.workspaceId),
+        eq(schema.team.key, key),
+      )
+
+      const readStates = (teamId: string) =>
+        tx
+          .select()
+          .from(schema.workflowState)
+          .where(
+            and(
+              eq(schema.workflowState.workspaceId, this.workspaceId),
+              eq(schema.workflowState.teamId, teamId),
+            ),
+          )
+          .orderBy(asc(schema.workflowState.position))
+
+      const [existing] = await tx.select().from(schema.team).where(byKey).limit(1)
+
+      if (existing !== undefined) {
+        return { team: existing, states: await readStates(existing.id) }
+      }
+
+      const [inserted] = await tx
+        .insert(schema.team)
+        .values({
+          id: newId(),
+          workspaceId: this.workspaceId,
+          key,
+          name: input.name,
+        })
+        .onConflictDoNothing()
+        .returning()
+
+      if (inserted === undefined) {
+        const [winner] = await tx.select().from(schema.team).where(byKey).limit(1)
+
+        if (winner === undefined) {
+          throw new Error("failed to create the team")
+        }
+
+        return { team: winner, states: await readStates(winner.id) }
+      }
+
+      const states =
+        input.states.length === 0
+          ? []
+          : await tx
+              .insert(schema.workflowState)
+              .values(
+                input.states.map((state) => ({
+                  id: newId(),
+                  workspaceId: this.workspaceId,
+                  teamId: inserted.id,
+                  name: state.name,
+                  category: state.category,
+                  position: state.position,
+                })),
+              )
+              .returning()
+
+      await appendChangeset(tx, this.workspaceId, input.actorId, [
+        {
+          entity: "team",
+          id: inserted.id,
+          teamId: null,
+          op: "insert",
+          patch: { id: inserted.id, key: inserted.key, name: inserted.name },
+        },
+        ...states.map((state) => ({
+          entity: "state" as const,
+          id: state.id,
+          teamId: inserted.id,
+          op: "insert" as const,
+          patch: {
+            id: state.id,
+            teamId: inserted.id,
+            name: state.name,
+            category: state.category,
+            position: state.position,
+          },
+        })),
+      ])
+
+      return { team: inserted, states }
     })
   }
 
@@ -581,4 +704,34 @@ export async function findMembership(
   }
 
   return { workspaceId: toWorkspaceId(row.id), role }
+}
+
+export async function listMemberships(db: Database, userId: string) {
+  const rows = await db
+    .select({
+      id: schema.workspace.id,
+      slug: schema.workspace.slug,
+      name: schema.workspace.name,
+      role: schema.member.role,
+    })
+    .from(schema.member)
+    .innerJoin(schema.workspace, eq(schema.member.organizationId, schema.workspace.id))
+    .where(eq(schema.member.userId, userId))
+    .orderBy(asc(schema.workspace.name))
+
+  return rows.map((row) => ({ ...row, role: roleOf(row.role) }))
+}
+
+export async function findWorkspaceBySlug(db: Database, slug: string) {
+  const [row] = await db
+    .select({
+      id: schema.workspace.id,
+      slug: schema.workspace.slug,
+      name: schema.workspace.name,
+    })
+    .from(schema.workspace)
+    .where(eq(schema.workspace.slug, slug))
+    .limit(1)
+
+  return row ?? null
 }

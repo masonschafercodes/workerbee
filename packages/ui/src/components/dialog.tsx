@@ -5,7 +5,7 @@ import { cn } from "../lib/cn"
 import { IconButton } from "./icon-button"
 
 export type DialogProps = {
-  readonly trigger: ReactElement
+  readonly trigger?: ReactElement
   readonly title: string
   readonly description?: string
   readonly children?: ReactNode
@@ -27,7 +27,9 @@ export function Dialog({
 }: DialogProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
+      {trigger !== undefined ? (
+        <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
+      ) : null}
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim" />
         <DialogPrimitive.Content
