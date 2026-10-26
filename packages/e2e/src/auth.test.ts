@@ -12,7 +12,8 @@ import { eq } from "drizzle-orm"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { join } from "node:path"
-import { createApp } from "./app"
+import { createApp } from "@workerbee/api"
+import { lockDatabase, unlockDatabase } from "./database-lock"
 
 const url = Bun.env.TEST_DATABASE_URL
 const describeDb = url === undefined ? describe.skip : describe
@@ -28,8 +29,10 @@ describeDb("auth and membership", () => {
   let userId = ""
 
   beforeAll(async () => {
+    await lockDatabase(pool)
+
     await migrate(db, {
-      migrationsFolder: join(import.meta.dir, "../../../packages/db/drizzle"),
+      migrationsFolder: join(import.meta.dir, "../../db/drizzle"),
     })
 
     await pool.query(`
@@ -45,6 +48,7 @@ describeDb("auth and membership", () => {
   })
 
   afterAll(async () => {
+    await unlockDatabase(pool)
     await pool.end()
   })
 

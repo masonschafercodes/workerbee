@@ -15,7 +15,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { join } from "node:path"
-import { createApp } from "./app"
+import { createApp } from "@workerbee/api"
+import { lockDatabase, unlockDatabase } from "./database-lock"
 
 const url = Bun.env.TEST_DATABASE_URL
 const describeDb = url === undefined ? describe.skip : describe
@@ -124,7 +125,9 @@ describeDb("bootstrap and sync", () => {
   }
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: join(import.meta.dir, "../../../packages/db/drizzle") })
+    await lockDatabase(pool)
+
+    await migrate(db, { migrationsFolder: join(import.meta.dir, "../../db/drizzle") })
 
     await pool.query(`
       DO $$
@@ -150,6 +153,7 @@ describeDb("bootstrap and sync", () => {
   })
 
   afterAll(async () => {
+    await unlockDatabase(pool)
     await pool.end()
   })
 
