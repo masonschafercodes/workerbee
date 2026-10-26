@@ -19,9 +19,11 @@ another workspace's rows. The design system is in place, with a gallery that ren
 dark. The product shell can sign in, create a workspace, list issues, open the detail panel,
 change state and priority, and comment. No live updates, boards, or worker deploy yet.
 
+## Local development
+
 ```sh
-bun install
-bun run check
-tofu -chdir=infra/envs/dev init -backend=false
-tofu -chdir=infra/envs/dev validate
+task setup
+task dev
 ```
+
+Open `http://localhost:5173`. `task --list` shows the rest.

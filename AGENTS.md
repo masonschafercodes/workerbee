@@ -23,29 +23,17 @@ command palette yet.
 
 ## Setup
 
-Requirements: Bun 1.4.4, Docker or podman, and OpenTofu 1.13 for infra work. The commands below
-use `docker`; with podman, substitute `podman` and `podman exec`.
+Requirements: Bun 1.4.4, Task, Docker or podman, and OpenTofu 1.13 for infra work.
 
 ```sh
-bun install
-
-docker run --rm -d --name workerbee-pg \
-  -p 5432:5432 \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=workerbee \
-  postgres:17-alpine
-
-export DATABASE_URL=postgres://postgres:postgres@localhost:5432/workerbee
-bun run --cwd packages/db migrate
-
-export BETTER_AUTH_SECRET=$(openssl rand -base64 32)
-export BETTER_AUTH_URL=http://localhost:5173
-
-bun run --cwd apps/api dev   # terminal 1
-bun run --cwd apps/web dev   # terminal 2
+task setup
+task dev
 ```
 
-The web app proxies `/api` to port 3001. Set `BETTER_AUTH_URL` to the origin you open.
+`task setup` creates `.env.dev` from the example, generates an auth secret, starts Postgres,
+migrates, and creates the test database. `task dev` runs the API and web app together. Open
+`http://localhost:5173`. The web app proxies `/api` to port 3001, so set `BETTER_AUTH_URL` to the
+origin you open.
 
 | Variable | Used by | Notes |
 | --- | --- | --- |
@@ -54,39 +42,41 @@ The web app proxies `/api` to port 3001. Set `BETTER_AUTH_URL` to the origin you
 | `BETTER_AUTH_URL` | API | Origin used for cookies and CSRF |
 | `TEST_DATABASE_URL` | Integration suites | Separate database, truncated by tests |
 
-Never commit `.dev.vars`, `terraform.tfvars`, `backend.hcl`, or OpenTofu state. The credentials
+Task loads `.env.dev` for every command. `task setup` creates it from `.env.dev.example`.
+If you rotate `BETTER_AUTH_SECRET`, run `task db:reset-auth` and sign in again. The stored JWKS
+keys are encrypted with the old secret.
+
+Never commit `.env.dev`, `.dev.vars`, `terraform.tfvars`, `backend.hcl`, or OpenTofu state. The credentials
 and bootstrap order are in [Setup](docs/SETUP.md).
 
 ## Commands
 
 | Task | Command |
 | --- | --- |
-| Fast gate | `bun run check` |
-| Full gate | `TEST_DATABASE_URL=... bun run check` |
+| Bootstrap | `task setup` |
+| Dev, API and web | `task dev` |
+| Check | `task check` |
+| Tests | `task test` |
+| E2E only | `task test:e2e` |
 | Typecheck only | `bun run typecheck` |
-| Tests | `bun test` |
-| E2E only | `bun test packages/e2e` |
-| API dev server | `bun run --cwd apps/api dev` |
-| Web app | `bun run --cwd apps/web dev` |
-| Design gallery | `bun run --cwd apps/design dev` |
-| Gallery build | `bun run --cwd apps/design build` |
-| Generate a migration | `bun run --cwd packages/db generate` |
-| Apply migrations | `bun run --cwd packages/db migrate` |
-| Infra format | `tofu fmt -recursive infra` |
-| Infra validate | `tofu -chdir=infra/envs/dev init -backend=false && tofu -chdir=infra/envs/dev validate` |
+| API only | `bun run --cwd apps/api dev` |
+| Web only | `bun run --cwd apps/web dev` |
+| Design gallery | `task design` |
+| Build apps | `task build` |
+| Generate a migration | `task db:generate` |
+| Apply migrations | `task db:migrate` |
+| Auth schema | `task db:auth-schema` |
+| Infra format | `task infra:fmt` |
+| Infra validate | `task infra:validate` |
 
-Integration suites truncate every table in the public schema. Create a dedicated database:
-
-```sh
-docker exec workerbee-pg createdb -U postgres workerbee_test
-export TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/workerbee_test
-```
+`task setup` creates `workerbee_test`. The suites truncate every table in whatever
+`TEST_DATABASE_URL` points at, so do not point it at a database with data you care about.
 
 Regenerate Better Auth tables after changing plugins:
 
 ```sh
-bunx --bun auth@1.7.13 generate --cwd packages/auth --config src/cli.ts \
-  --output ../db/src/schema/auth.ts --adapter drizzle --dialect postgresql -y
+task db:auth-schema
+task db:migrate
 ```
 
 ## Repository map

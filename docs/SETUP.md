@@ -69,57 +69,54 @@ config. The Neon project is guarded by `prevent_destroy`.
 
 ## Local development
 
-Local work needs no cloud credentials. Start Postgres 17:
+The Taskfile wraps the local loop. Run once:
 
 ```sh
-docker run --rm -d --name workerbee-pg \
-  -p 5432:5432 \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=workerbee \
-  postgres:17-alpine
-export DATABASE_URL=postgres://postgres:postgres@localhost:5432/workerbee
-bun run --cwd packages/db migrate
+task setup
 ```
 
-Then run the API:
+This copies `.env.dev.example` to `.env.dev`, generates an auth secret, installs
+dependencies, starts Postgres on `127.0.0.1` only, applies migrations, and creates
+the test database. If Postgres is already listening on `127.0.0.1:5432`, setup uses it
+instead of starting Compose. Then:
 
 ```sh
-export BETTER_AUTH_SECRET=$(openssl rand -base64 32)
-export BETTER_AUTH_URL=http://localhost:5173
-
-bun run --cwd apps/api dev   # terminal 1
-bun run --cwd apps/web dev   # terminal 2
+task dev
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api` to the API on port 3001, so cookies and
-the origin check use the web origin. Set `BETTER_AUTH_URL` to whichever origin you open.
+The API runs on port 3001 and the web app on port 5173. Open
+`http://localhost:5173`. Vite proxies `/api` to the API, so cookies and the
+origin check use the web origin. `BETTER_AUTH_URL` must match the origin you
+open.
 
-The design system gallery runs on its own:
+`.env.dev` is gitignored and loaded by every task. It holds local service
+values: database URLs, the auth secret, the auth origin, ports, and Postgres
+settings. Cloud credentials do not belong there.
 
-```sh
-bun run --cwd apps/design dev   # http://localhost:5173
-```
+If you change `BETTER_AUTH_SECRET`, run `task db:reset-auth`, then sign in again. Better Auth
+cannot decrypt keys created with the old secret.
 
-The integration suites run only when `TEST_DATABASE_URL` is set. They truncate
-every table in the public schema, so point them at a separate database:
+Run `task --list` for everything. The common tasks are `task check`,
+`task test:e2e`, `task db:migrate`, `task db:generate`, `task db:studio`,
+`task db:reset`, `task design`, `task build`, and `task infra:validate`.
 
-```sh
-docker exec workerbee-pg createdb -U postgres workerbee_test
-export TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/workerbee_test
-bun test
-```
+If you use podman, set `CONTAINER_CMD` in `.env.dev`, for example
+`CONTAINER_CMD="podman compose"`. Without Task, the commands are in
+`Taskfile.yml`.
+
+The integration suites use `TEST_DATABASE_URL` and truncate every table in that
+database. `task setup` creates `workerbee_test` for this.
 
 ## Changing the auth schema
 
-Better Auth owns its tables. Regenerate them after adding a plugin, then review
-the diff and generate a migration:
+Better Auth owns its tables. Regenerate them after adding a plugin:
 
 ```sh
-bunx --bun auth@1.7.13 generate --cwd packages/auth --config src/cli.ts \
-  --output ../db/src/schema/auth.ts --adapter drizzle --dialect postgresql -y
-bun run --cwd packages/db generate
-bun run --cwd packages/db migrate
+task db:auth-schema
+task db:migrate
 ```
+
+Review the generated schema and migration before committing.
 
 ## Not configuration
 
@@ -132,5 +129,3 @@ These still do not exist. Providing credentials does not produce a working app.
 - Row level security policies. The repository wrapper and the isolation suite
   are in place; RLS is the database backstop that comes later.
 - Changeset pruning. The log grows until a scheduled job lands.
-
-Until those land, the `dev` apply provisions infrastructure only.
