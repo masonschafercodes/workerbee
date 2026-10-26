@@ -1,5 +1,6 @@
 import { createDb, TenantDb } from "@workerbee/db"
 import { workspaceId, type WorkspaceId } from "@workerbee/domain"
+import { createTelemetry, type Telemetry } from "@workerbee/telemetry"
 import {
   HUB_BUFFER_CAPACITY,
   WorkspaceHubCore,
@@ -29,6 +30,7 @@ type HibernatingSocket = WebSocket
 
 type HubState = {
   readonly storage: DurableStorage
+  waitUntil(promise: Promise<unknown>): void
   getWebSockets(): HibernatingSocket[]
   acceptWebSocket(socket: HibernatingSocket): void
   blockConcurrencyWhile(callback: () => Promise<void>): Promise<void>
@@ -40,7 +42,11 @@ type QueueMessage = {
   retry(): void
 }
 
-type Env = HubEnv & { readonly BETTER_AUTH_SECRET: string }
+type Env = HubEnv & {
+  readonly BETTER_AUTH_SECRET: string
+  readonly POSTHOG_KEY?: string
+  readonly POSTHOG_HOST?: string
+}
 
 type HubAttachment = {
   readonly teamIds: "all" | readonly string[]
@@ -101,12 +107,19 @@ class SqliteBuffer implements HubBufferStorage {
 
 export class WorkspaceHub {
   private readonly ready: Promise<void>
+  private readonly telemetry: Telemetry
   private core: WorkspaceHubCore | null = null
 
   constructor(
     private readonly state: HubState,
     private readonly env: Env,
   ) {
+    this.telemetry = createTelemetry({
+      key: env.POSTHOG_KEY,
+      host: env.POSTHOG_HOST,
+      service: "workerbee-hub",
+      waitUntil: (promise) => state.waitUntil(promise),
+    })
     this.ready = state.blockConcurrencyWhile(async () => {
       state.storage.sql.exec(
         "CREATE TABLE IF NOT EXISTS hub_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
@@ -273,6 +286,14 @@ export class WorkspaceHub {
       return new Response(null, { status: 204 })
     } catch (error) {
       console.error("Hub refresh failed", error)
+      this.telemetry.captureException(error, undefined, {
+        workspace_id: workspace.toString(),
+        operation: "hub.refresh",
+      })
+      this.telemetry.log("error", "hub refresh failed", {
+        workspace_id: workspace.toString(),
+        error: error instanceof Error ? error.message : String(error),
+      })
       return new Response("Hub refresh failed", { status: 503 })
     }
   }

@@ -1,10 +1,11 @@
 import { Outlet, useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { CreateIssueDialog } from "../components/create-issue-dialog"
 import { IssueList } from "../components/issue-list"
 import { Sidebar } from "../components/sidebar"
 import { ErrorScreen, LoadingScreen } from "../components/states"
 import { Topbar } from "../components/topbar"
+import { identifyUser, resetAnalytics } from "../lib/analytics"
 import { authClient } from "../lib/auth"
 import { useBootstrap, useWorkspaces } from "../lib/hooks"
 import { useRealtime } from "../lib/realtime"
@@ -33,6 +34,15 @@ export function WorkspacePage() {
   }, [bootstrap.data?.issues])
 
   const selectedIdentifier = pathname.match(/\/issues\/([^/]+)$/)?.[1]
+  const userId = session.data?.user.id
+  const userEmail = session.data?.user.email
+  const userName = session.data?.user.name
+
+  useEffect(() => {
+    if (userId !== undefined && userEmail !== undefined && userName !== undefined) {
+      identifyUser(userId, userEmail, userName)
+    }
+  }, [userId, userEmail, userName])
 
   if (session.isPending || bootstrap.isPending) {
     return <LoadingScreen />
@@ -65,6 +75,7 @@ export function WorkspacePage() {
 
   async function signOut() {
     await authClient.signOut()
+    resetAnalytics()
     queryClient.clear()
     await navigate({ to: "/sign-in" })
   }

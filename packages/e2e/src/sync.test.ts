@@ -45,6 +45,7 @@ describeDb("bootstrap and sync", () => {
     auth,
     db,
     origin: ORIGIN,
+    telemetry: { capture() {}, captureException() {}, log() {} },
     realtime: {
       secret: SECRET,
       publisher: {

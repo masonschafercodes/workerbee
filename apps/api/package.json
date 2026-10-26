@@ -15,6 +15,7 @@
     "@workerbee/domain": "workspace:*",
     "@workerbee/realtime": "workspace:*",
     "@workerbee/sync": "workspace:*",
+    "@workerbee/telemetry": "workspace:*",
     "hono": "^4.9.0"
   }
 }

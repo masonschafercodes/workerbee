@@ -28,6 +28,7 @@ describeDb("auth and membership", () => {
     auth,
     db,
     origin: ORIGIN,
+    telemetry: { capture() {}, captureException() {}, log() {} },
     realtime: {
       secret: SECRET,
       publisher: { async publish() {} },

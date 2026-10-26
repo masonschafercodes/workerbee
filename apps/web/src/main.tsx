@@ -4,11 +4,17 @@ import { RouterProvider } from "@tanstack/react-router"
 import { TooltipProvider } from "@workerbee/ui"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+import { capturePageview, initAnalytics } from "./lib/analytics"
 import { applySystemTheme } from "./lib/theme"
 import { queryClient } from "./lib/query"
 import { router } from "./router"
 
 applySystemTheme()
+initAnalytics()
+
+router.subscribe("onResolved", ({ toLocation }) => {
+  capturePageview(toLocation.href)
+})
 
 const root = document.getElementById("root")
 

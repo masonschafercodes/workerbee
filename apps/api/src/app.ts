@@ -25,7 +25,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1", realtimeRoutes(deps))
 
   app.notFound((c) => c.json({ error: "not_found" }, 404))
-  app.onError(handleError)
+  app.onError((error, c) => handleError(error, c, deps.telemetry))
 
   return app
 }

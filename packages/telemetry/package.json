@@ -1,0 +1,1 @@
+{"name":"@workerbee/telemetry","private":true,"type":"module","exports":{".":"./src/index.ts"},"dependencies":{"posthog-node":"^5.57.2"}}

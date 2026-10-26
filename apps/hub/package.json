@@ -10,6 +10,7 @@
     "@workerbee/domain": "workspace:*",
     "@workerbee/realtime": "workspace:*",
     "@workerbee/sync": "workspace:*",
+    "@workerbee/telemetry": "workspace:*",
     "zod": "^4.0.0"
   }
 }

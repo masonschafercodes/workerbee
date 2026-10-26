@@ -26,6 +26,16 @@ const command = Bun.spawn(
   },
 )
 
-command.stdin.write(JSON.stringify({ BETTER_AUTH_SECRET: secret }))
+const secrets: Record<string, string> = { BETTER_AUTH_SECRET: secret }
+
+for (const name of ["POSTHOG_KEY", "POSTHOG_HOST"] as const) {
+  const value = process.env[name]
+
+  if (value !== undefined && value !== "") {
+    secrets[name] = value
+  }
+}
+
+command.stdin.write(JSON.stringify(secrets))
 command.stdin.end()
 process.exitCode = await command.exited
