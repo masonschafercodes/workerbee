@@ -32,7 +32,8 @@ The human-facing key of an issue, formed from the team key and the issue number,
 _Avoid_: Key, ref, slug
 
 **Workflow state**:
-A named stage in a team's process, with a category of backlog, started, done, or canceled.
+A named stage in a team's process, with a category of backlog, unstarted, started, done, or
+canceled.
 _Avoid_: Status, column
 
 **Changeset**:

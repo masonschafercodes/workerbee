@@ -12,7 +12,13 @@ import type {
 export const PRIORITIES = ["none", "urgent", "high", "medium", "low"] as const
 export type Priority = (typeof PRIORITIES)[number]
 
-export const STATE_CATEGORIES = ["backlog", "started", "done", "canceled"] as const
+export const STATE_CATEGORIES = [
+  "backlog",
+  "unstarted",
+  "started",
+  "done",
+  "canceled",
+] as const
 export type StateCategory = (typeof STATE_CATEGORIES)[number]
 
 export type Issue = {

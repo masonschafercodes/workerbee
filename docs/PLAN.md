@@ -27,7 +27,7 @@ This document is the proposal to argue with before any code lands. Decisions liv
 
 **Alternatives not taken.** Adopting an existing open-source Linear clone (Plane, Huly) would
 start from someone else's domain model, runtime, and opinion about agents. The agent surface is the
-point, so the issue model is ours. A generic workflow engine is also out: four state categories and
+point, so the issue model is ours. A generic workflow engine is also out: five state categories and
 a per-team state list cover real use.
 
 ## Decisions at a glance
@@ -94,7 +94,7 @@ every index. Internal ids are UUIDv7. Human-facing issue keys are `TEAM-123`.
 | `member` | Better Auth org membership, one row per actor per workspace, with role. |
 | `team` | Team inside a workspace, with `key` (`ENG`) and issue counter. |
 | `team_member` | Team scope and team role. Narrower than workspace membership. |
-| `workflow_state` | Named state per team with a category (`backlog`, `started`, `done`, `canceled`). |
+| `workflow_state` | Named state per team with a category (`backlog`, `unstarted`, `started`, `done`, `canceled`). |
 | `issue` | Title, body, state, priority, assignee, project, cycle, parent, estimate, version. |
 | `issue_label`, `label` | Many-to-many labels. |
 | `issue_relation` | `blocks`, `blocked_by`, `relates`, `duplicate`. |
