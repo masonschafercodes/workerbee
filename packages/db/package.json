@@ -9,7 +9,8 @@
   "scripts": {
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "studio": "drizzle-kit studio"
+    "studio": "drizzle-kit studio",
+    "ensure-test-db": "bun run src/ensure-test-db.ts"
   },
   "dependencies": {
     "@workerbee/domain": "workspace:*",

@@ -77,7 +77,8 @@ task setup
 
 This copies `.env.dev.example` to `.env.dev`, generates an auth secret, installs
 dependencies, starts Postgres on `127.0.0.1` only, applies migrations, and creates
-the test database. Then:
+the test database. If Postgres is already listening on `127.0.0.1:5432`, setup uses it
+instead of starting Compose. Then:
 
 ```sh
 task dev

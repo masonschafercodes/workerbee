@@ -77,34 +77,33 @@ tasks:
       - bun run --cwd apps/design build
 
   db:up:
-    desc: Start local Postgres and ensure the test database
+    desc: Start local Postgres unless one is already listening, then ensure the test database
     cmds:
-      - ${CONTAINER_CMD:-docker compose} -f compose.dev.yml up -d
       - |
-        i=0
-        while [ "$i" -lt 30 ]; do
-          if ${CONTAINER_CMD:-docker compose} -f compose.dev.yml exec -T postgres \
-            pg_isready -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-workerbee}" >/dev/null 2>&1; then
-            exit 0
+        if bun -e 'const socket = await Bun.connect({ hostname: "127.0.0.1", port: 5432, socket: { data() {} } }).catch(() => null); if (socket === null) process.exit(1); socket.end()'; then
+          echo "Postgres is already listening on 127.0.0.1:5432"
+        else
+          ${CONTAINER_CMD:-docker compose} -f compose.dev.yml up -d
+          i=0
+          while [ "$i" -lt 30 ]; do
+            if ${CONTAINER_CMD:-docker compose} -f compose.dev.yml exec -T postgres \
+              pg_isready -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-workerbee}" >/dev/null 2>&1; then
+              break
+            fi
+            i=$((i + 1))
+            sleep 1
+          done
+          if [ "$i" -ge 30 ]; then
+            echo "Postgres did not become ready" >&2
+            exit 1
           fi
-          i=$((i + 1))
-          sleep 1
-        done
-        echo "Postgres did not become ready" >&2
-        exit 1
+        fi
       - task: db:test-db
 
   db:test-db:
     desc: Create the test database if it is missing
     cmds:
-      - |
-        if ${CONTAINER_CMD:-docker compose} -f compose.dev.yml exec -T postgres \
-          psql -U "${POSTGRES_USER:-postgres}" -d postgres -tAc \
-          "SELECT 1 FROM pg_database WHERE datname = '${POSTGRES_TEST_DB:-workerbee_test}'" | grep -q 1; then
-          exit 0
-        fi
-        ${CONTAINER_CMD:-docker compose} -f compose.dev.yml exec -T postgres \
-          createdb -U "${POSTGRES_USER:-postgres}" "${POSTGRES_TEST_DB:-workerbee_test}"
+      - bun run --cwd packages/db ensure-test-db
 
   db:down:
     desc: Stop local Postgres and keep its data
