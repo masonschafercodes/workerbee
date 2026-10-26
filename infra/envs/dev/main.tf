@@ -34,6 +34,16 @@ variable "neon_org_id" {
   type = string
 }
 
+variable "hostname" {
+  type    = string
+  default = ""
+
+  validation {
+    condition     = var.hostname == "" || (!strcontains(var.hostname, "/") && !strcontains(var.hostname, ":"))
+    error_message = "hostname must be a bare DNS hostname without a scheme or path."
+  }
+}
+
 variable "name_prefix" {
   type    = string
   default = "workerbee-dev"
@@ -106,6 +116,15 @@ module "hyperdrive" {
   password   = module.postgres.password
 }
 
+module "web_domain" {
+  count  = var.hostname == "" ? 0 : 1
+  source = "../../modules/edge"
+
+  account_id = var.account_id
+  hostname   = var.hostname
+  service    = "workerbee-web-dev"
+}
+
 output "queue_names" {
   value = {
     sync        = module.sync_queue.name
@@ -130,6 +149,24 @@ output "database" {
   }
 }
 
+output "database_url" {
+  value     = module.postgres.connection_uri
+  sensitive = true
+}
+
 output "hyperdrive_id" {
   value = module.hyperdrive.id
+}
+
+output "web_hostname" {
+  value = var.hostname
+}
+
+output "wrangler_bindings" {
+  value = {
+    account_id             = var.account_id
+    hyperdrive_id          = module.hyperdrive.id
+    sync_queue_name        = module.sync_queue.name
+    dead_letter_queue_name = module.dead_letter_queue.name
+  }
 }

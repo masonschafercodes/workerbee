@@ -4,16 +4,10 @@ import { createApp } from "./app"
 import {
   DurableObjectHubRouter,
   QueueChangePublisher,
-  type HubNamespace,
-  type QueueBinding,
 } from "./cloudflare-realtime"
 
-export type Env = {
-  HYPERDRIVE: { connectionString: string }
-  BETTER_AUTH_SECRET: string
-  BETTER_AUTH_URL: string
-  REALTIME_QUEUE: QueueBinding
-  HUB: HubNamespace
+export type Env = ApiEnv & {
+  readonly BETTER_AUTH_SECRET: string
 }
 
 type Cached = {

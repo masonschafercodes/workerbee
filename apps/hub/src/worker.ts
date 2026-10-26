@@ -34,22 +34,13 @@ type HubState = {
   blockConcurrencyWhile(callback: () => Promise<void>): Promise<void>
 }
 
-type DurableNamespace = {
-  idFromName(name: string): unknown
-  get(id: unknown): { fetch(request: Request): Promise<Response> }
-}
-
 type QueueMessage = {
   readonly body: unknown
   ack(): void
   retry(): void
 }
 
-type Env = {
-  readonly HYPERDRIVE: { readonly connectionString: string }
-  readonly BETTER_AUTH_SECRET: string
-  readonly HUB: DurableNamespace
-}
+type Env = HubEnv & { readonly BETTER_AUTH_SECRET: string }
 
 type HubAttachment = {
   readonly teamIds: "all" | readonly string[]

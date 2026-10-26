@@ -14,7 +14,8 @@ code rather than configuration.
 | R2 access key id | `AWS_ACCESS_KEY_ID` | yes | R2 API token created after bootstrap |
 | R2 secret access key | `AWS_SECRET_ACCESS_KEY` | yes | R2 API token created after bootstrap |
 | State backend config | `infra/envs/dev/backend.hcl` | no | Copy from `backend.hcl.example`, fill the account id |
-| Zone and hostname | later, when the web app deploys | no | Your Cloudflare zone |
+| Dev hostname | `WORKERBEE_HOSTNAME` during deployment | no | A hostname in a Cloudflare zone on the account |
+| Smoke URL | `WORKERBEE_URL` for `task smoke:dev` | no | Defaults to `https://$WORKERBEE_HOSTNAME` |
 
 `NEON_API_KEY` is read by the Neon provider directly. It is never a Terraform
 variable, so it never enters state. The Neon role password does enter state, and
@@ -27,9 +28,10 @@ The Cloudflare token needs, at minimum:
 - Account: Hyperdrive, edit
 - Account: Account Settings, read
 - Zone: Zone, read
+- Account: Workers Scripts, edit
 
-Add Workers Scripts when the API deploys, and DNS plus Access when the web app
-gets a hostname.
+The Workers Custom Domain resource creates the dev hostname through OpenTofu.
+The token also needs Workers Scripts access for Wrangler deploys.
 
 ## One-time bootstrap
 
@@ -64,8 +66,10 @@ tofu -chdir=infra/envs/dev init -backend-config=backend.hcl
 tofu -chdir=infra/envs/dev apply
 ```
 
-The apply creates two R2 buckets, two queues, one Neon project, and one Hyperdrive
-config. The Neon project is guarded by `prevent_destroy`.
+The first apply creates two R2 buckets, two queues, one Neon project, and one
+Hyperdrive config. The Neon project is guarded by `prevent_destroy`. The dev
+hostname is attached after Wrangler deploys the web Worker. See [Deploy the dev
+environment](DEPLOY.md) for the full sequence.
 
 ## Local development
 
@@ -97,9 +101,11 @@ settings. Cloud credentials do not belong there.
 If you change `BETTER_AUTH_SECRET`, run `task db:reset-auth`, then sign in again. Better Auth
 cannot decrypt keys created with the old secret.
 
-Run `task --list` for everything. The common tasks are `task check`,
+Run `task --list` for everything. Common tasks include `task check`,
 `task test:e2e`, `task db:migrate`, `task db:generate`, `task db:studio`,
-`task db:reset`, `task design`, `task build`, and `task infra:validate`.
+`task db:reset`, `task design`, `task build`, `task infra:validate`,
+`task infra:plan`, `task infra:apply`, `task infra:bindings`,
+`task wrangler:dry-run`, `task deploy:dev`, and `task smoke:dev`.
 
 If you use podman, set `CONTAINER_CMD` in `.env.dev`, for example
 `CONTAINER_CMD="podman compose"`. Without Task, the commands are in
@@ -123,10 +129,10 @@ Review the generated schema and migration before committing.
 
 These still do not exist. Providing credentials does not produce a working app.
 
-- Wrangler configs, the generated bindings file, and deployed API, hub, and web
-  Workers. Worker entry points exist, but no Worker has been deployed.
+- The account-generated bindings file and deployed API, hub, and web Workers.
+  Wrangler configs and deploy tasks exist, but no Worker has been deployed yet.
 - Boards and the command palette. Live updates work locally; queue delivery and
-  the Durable Object deployment still need Wrangler configuration.
+  the Durable Object deployment still need account resources and a deploy.
 - Row level security policies. The repository wrapper and the isolation suite
   are in place; RLS is the database backstop that comes later.
 - Changeset pruning. The log grows until a scheduled job lands.

@@ -70,6 +70,45 @@ tasks:
     cmds:
       - bun test packages/e2e
 
+  smoke:dev:
+    desc: Verify the deployed dev app through two authenticated WebSocket clients
+    cmds:
+      - |
+        if [ -z "${WORKERBEE_URL:-}" ]; then
+          if [ -z "${WORKERBEE_HOSTNAME:-}" ]; then
+            echo "Set WORKERBEE_URL or WORKERBEE_HOSTNAME" >&2
+            exit 1
+          fi
+          WORKERBEE_URL="https://${WORKERBEE_HOSTNAME}" bun run scripts/smoke-dev.ts
+        else
+          bun run scripts/smoke-dev.ts
+        fi
+
+  wrangler:types:
+    desc: Generate Cloudflare binding types from Wrangler configs
+    cmds:
+      - bun run wrangler types apps/api/worker-configuration.d.ts --config apps/api/wrangler.jsonc --env-interface ApiEnv --include-runtime=false --strict-vars=false
+      - bun run wrangler types apps/hub/worker-configuration.d.ts --config apps/hub/wrangler.jsonc --env-interface HubEnv --include-runtime=false --strict-vars=false
+      - bun run wrangler types apps/web/worker-configuration.d.ts --config apps/web/wrangler.jsonc --env-interface WebEnv --include-runtime=false --strict-vars=false
+
+  wrangler:types:check:
+    desc: Check generated Cloudflare binding types against Wrangler configs
+    cmds:
+      - bun run wrangler types apps/api/worker-configuration.d.ts --config apps/api/wrangler.jsonc --env-interface ApiEnv --include-runtime=false --strict-vars=false --check
+      - bun run wrangler types apps/hub/worker-configuration.d.ts --config apps/hub/wrangler.jsonc --env-interface HubEnv --include-runtime=false --strict-vars=false --check
+      - bun run wrangler types apps/web/worker-configuration.d.ts --config apps/web/wrangler.jsonc --env-interface WebEnv --include-runtime=false --strict-vars=false --check
+
+  wrangler:dry-run:
+    desc: Build and validate the API, hub, and web Worker configs without deployment
+    deps:
+      - build
+      - wrangler:types:check
+    cmds:
+      - bun run scripts/generate-wrangler-configs.ts --example
+      - bun run --bun wrangler deploy --dry-run --config apps/hub/wrangler.generated.jsonc
+      - bun run --bun wrangler deploy --dry-run --config apps/api/wrangler.generated.jsonc
+      - bun run --bun wrangler deploy --dry-run --config apps/web/wrangler.generated.jsonc
+
   build:
     desc: Build the web app and the design gallery
     cmds:
@@ -152,8 +191,77 @@ tasks:
     cmds:
       - tofu fmt -recursive infra
 
+  infra:init:
+    desc: Initialize the dev OpenTofu backend
+    cmds:
+      - tofu -chdir=infra/envs/dev init -input=false -backend-config=backend.hcl
+
+  infra:plan:
+    desc: Plan dev infrastructure using the configured hostname
+    deps:
+      - infra:init
+    cmds:
+      - bun run scripts/tofu-dev.ts plan
+
+  infra:apply:
+    desc: Apply dev infrastructure using the configured hostname
+    deps:
+      - infra:init
+    cmds:
+      - bun run scripts/tofu-dev.ts apply
+
+  infra:bindings:
+    desc: Generate committed Wrangler bindings from dev OpenTofu outputs
+    deps:
+      - infra:init
+    cmds:
+      - bun run scripts/generate-wrangler-configs.ts --from-tofu
+
+  infra:bindings:check:
+    desc: Check committed Wrangler bindings against dev OpenTofu outputs
+    deps:
+      - infra:init
+    cmds:
+      - bun run scripts/generate-wrangler-configs.ts --check-tofu
+
   infra:validate:
     desc: Validate the dev OpenTofu environment without a backend
     cmds:
       - tofu -chdir=infra/envs/dev init -backend=false -input=false
       - tofu -chdir=infra/envs/dev validate
+
+  deploy:dev:
+    desc: Deploy dev Workers and bind the configured hostname
+    deps:
+      - infra:init
+      - build
+    cmds:
+      - |
+        set -eu
+        : "${WORKERBEE_HOSTNAME:?Set WORKERBEE_HOSTNAME to the dev hostname}"
+        : "${TF_VAR_account_id:?Set TF_VAR_account_id}"
+        : "${TF_VAR_cloudflare_api_token:?Set TF_VAR_cloudflare_api_token}"
+        : "${TF_VAR_neon_org_id:?Set TF_VAR_neon_org_id}"
+        : "${NEON_API_KEY:?Set NEON_API_KEY}"
+        : "${BETTER_AUTH_SECRET:?Run task setup first}"
+        export CLOUDFLARE_ACCOUNT_ID="$TF_VAR_account_id"
+        export CLOUDFLARE_API_TOKEN="$TF_VAR_cloudflare_api_token"
+        current_hostname=$(tofu -chdir=infra/envs/dev output -raw web_hostname 2>/dev/null || true)
+        config_hostname="${current_hostname:-$WORKERBEE_HOSTNAME}"
+        bun run scripts/tofu-dev.ts apply --hostname "$current_hostname"
+        bun run scripts/generate-wrangler-configs.ts --from-tofu --hostname "$config_hostname"
+        bun run scripts/migrate-dev-db.ts
+        bun run --bun wrangler deploy --config apps/hub/wrangler.generated.jsonc
+        bun run scripts/set-worker-secret.ts apps/hub/wrangler.generated.jsonc
+        bun run --bun wrangler deploy --config apps/api/wrangler.generated.jsonc
+        bun run scripts/set-worker-secret.ts apps/api/wrangler.generated.jsonc
+        bun run --bun wrangler deploy --config apps/web/wrangler.generated.jsonc
+        bun run scripts/tofu-dev.ts apply --hostname "$WORKERBEE_HOSTNAME"
+        bun run scripts/generate-wrangler-configs.ts --from-tofu
+        if [ "$config_hostname" != "$WORKERBEE_HOSTNAME" ]; then
+          bun run --bun wrangler deploy --config apps/api/wrangler.generated.jsonc
+          bun run scripts/set-worker-secret.ts apps/api/wrangler.generated.jsonc
+        fi
+        bun run scripts/generate-wrangler-configs.ts --check-tofu
+        bun run scripts/tofu-dev.ts check --hostname "$WORKERBEE_HOSTNAME"
+        WORKERBEE_URL="https://${WORKERBEE_HOSTNAME}" bun run scripts/smoke-dev.ts

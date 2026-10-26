@@ -1,0 +1,7 @@
+{
+  "account_id": "00000000000000000000000000000000",
+  "hyperdrive_id": "00000000000000000000000000000000",
+  "sync_queue_name": "workerbee-dev-sync",
+  "dead_letter_queue_name": "workerbee-dev-dead-letter",
+  "web_hostname": ""
+}

@@ -12,6 +12,7 @@ coverage/
 
 # OpenTofu
 **/.terraform/
+apps/*/wrangler.generated.jsonc
 *.tfstate
 *.tfstate.*
 *.tfplan
