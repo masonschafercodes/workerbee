@@ -359,6 +359,21 @@ explicit step, never on worker boot.
 - `tofu plan` cleanliness and a `wrangler deploy --dry-run` in CI.
 - A restore drill: dump prod, restore into a scratch database, run the app against it.
 
+## Current phase
+
+**Phase 1, core loop.** Phase 0 is complete. Landed: workspaces, teams, membership, issues,
+workflow states, priorities, comments, changesets, `/sync`, the hub WebSocket, and two-way live
+updates. The dev environment is deployed at the configured hostname. Agent actors exist in the
+domain and policy, with no agent-facing surface yet.
+
+Phase 1 still needs:
+
+- Labels and issue relations in the repository, changesets, sync, and UI. The label tables exist.
+- A board view, keyboard navigation, and the command palette.
+- The exit check between two browsers: one issue moves and one comment appears without a refresh.
+
+This section is the source of truth for phase status. Update it when a slice lands.
+
 ## Phases
 
 Sizes are effort, not calendar. Phases 3 onward assume the earlier exit criteria hold.
@@ -414,21 +429,13 @@ SSE instead of Durable Objects behind the same sync interface.
 | Workspace routing | Path-based, `/w/<slug>/...` | One cookie, one origin. Subdomains are a later addition. |
 | Issue-level permissions | Deferred. Workspace roles plus team scope in v1, private teams in Phase 4 | The policy module starts with team scope only. |
 
-If any of these is wrong, say so before Phase 1 lands. Only the Postgres host is expensive once data
-exists. The other four stay cheap until Phase 1.
+Revisit a decision when a change would make it expensive to reverse. Only the Postgres host is
+expensive once data exists.
 
 ## Immediate next steps
 
-Once the open questions are settled, Phase 0 lands as a sequence of small, reviewable changes:
-
-1. Bun workspace skeleton, `packages/config`, CI with typecheck and test, `.gitignore`, editor and
-   formatting config. No application code yet.
-2. `infra/bootstrap` apply by hand: R2 state bucket, API token, first `tofu init`.
-3. `infra/envs/dev`: one worker, one static asset route, generated bindings file. Deploy an empty
-   shell from CI.
-4. `packages/db`: Drizzle schema for `workspace`, `actor`, `user`, `member`, migrations pipeline
-   against Docker Compose Postgres.
-5. `packages/auth`: Better Auth wired into the API worker, password and passkey sign-in, email
-   delivery stubbed behind a transport interface.
-6. First changeset and sync read endpoints, with integration tests for the `seq` guarantee.
-7. Playwright smoke test: sign in, see an empty workspace, reload, stay signed in.
+1. Add labels and issue relations through the repository, changesets, sync, and UI.
+2. Build the board view, keyboard navigation, and the command palette.
+3. Verify the Phase 1 exit in two browsers: move an issue and post a comment, both without a
+   refresh.
+4. Start Phase 2 once Phase 1 exits.
