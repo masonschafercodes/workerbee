@@ -1,12 +1,15 @@
 import { createAuth } from "@workerbee/auth"
 import {
   createDb,
+  listWorkspaceSequences,
   team,
+  workspace,
   TenantDb,
   workflowState,
 } from "@workerbee/db"
 import {
   actorId,
+  newWorkspaceId,
   teamId as toTeamId,
   workspaceId as toWorkspaceId,
   type TeamId,
@@ -16,6 +19,7 @@ import { and, eq } from "drizzle-orm"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { join } from "node:path"
 import { createApp } from "@workerbee/api"
+import { verifyRealtimeTicket } from "@workerbee/realtime"
 import { lockDatabase, unlockDatabase } from "./database-lock"
 
 const url = Bun.env.TEST_DATABASE_URL
@@ -36,7 +40,28 @@ type Account = {
 describeDb("bootstrap and sync", () => {
   const { db, pool } = createDb(url ?? "postgres://unused")
   const auth = createAuth({ db, secret: SECRET, baseURL: ORIGIN })
-  const app = createApp({ auth, db, origin: ORIGIN })
+  const published: Array<{ workspaceId: string; seq: number }> = []
+  const app = createApp({
+    auth,
+    db,
+    origin: ORIGIN,
+    realtime: {
+      secret: SECRET,
+      publisher: {
+        async publish({ workspaceId, seq }) {
+          published.push({ workspaceId, seq })
+          throw new Error("queue unavailable")
+        },
+      },
+      hub: {
+        async connect({ workspaceId, ticket }) {
+          const verified = await verifyRealtimeTicket(ticket, SECRET, workspaceId)
+
+          return new Response(null, { status: verified === null ? 401 : 200 })
+        },
+      },
+    },
+  })
 
   let mason!: Account
   let other!: Account
@@ -157,6 +182,22 @@ describeDb("bootstrap and sync", () => {
     await pool.end()
   })
 
+  test("the sweeper finds workspaces with and without a changeset cursor", async () => {
+    const unsequencedWorkspaceId = newWorkspaceId()
+    await db.insert(workspace).values({
+      id: unsequencedWorkspaceId,
+      name: "No changes yet",
+      slug: "no-changes-yet",
+      createdAt: new Date(),
+    })
+
+    const sequences = await listWorkspaceSequences(db)
+
+    expect(sequences).toContainEqual({ workspaceId: toWorkspaceId(mason.workspaceId), seq: 1 })
+    expect(sequences).toContainEqual({ workspaceId: toWorkspaceId(other.workspaceId), seq: 2 })
+    expect(sequences).toContainEqual({ workspaceId: unsequencedWorkspaceId, seq: 0 })
+  })
+
   test("bootstrap returns the workspace, teams, and an empty issue list", async () => {
     const response = await app.request("/api/v1/bootstrap", {
       headers: headers(mason),
@@ -212,6 +253,7 @@ describeDb("bootstrap and sync", () => {
     expect(body.issue.identifier).toBe("ENG-1")
     expect(body.issue.title).toBe("First issue")
     expect(body.seq).toBe(2)
+    expect(published).toContainEqual({ workspaceId: mason.workspaceId, seq: 2 })
   })
 
   test("sync returns the changeset and then nothing new", async () => {
@@ -328,6 +370,37 @@ describeDb("bootstrap and sync", () => {
 
     expect(teamIds.length).toBeGreaterThan(0)
     expect(teamIds.every((teamId) => teamId === null || teamId === mason.teamId)).toBe(true)
+  })
+
+  test("realtime tickets are authenticated and bound to one workspace", async () => {
+    const response = await app.request("/api/v1/realtime-ticket", {
+      method: "POST",
+      headers: { ...headers(mason), origin: ORIGIN },
+    })
+
+    expect(response.status).toBe(200)
+    const { ticket } = (await response.json()) as { ticket: string }
+    const verified = await verifyRealtimeTicket(ticket, SECRET, toWorkspaceId(mason.workspaceId))
+
+    expect(verified).toMatchObject({
+      actorId: mason.userId,
+      workspaceId: mason.workspaceId,
+      teamIds: "all",
+    })
+
+    const wrongWorkspace = await app.request(
+      `/api/v1/realtime/${other.workspaceId}?ticket=${encodeURIComponent(ticket)}&since=1`,
+      { headers: { upgrade: "websocket" } },
+    )
+
+    expect(wrongWorkspace.status).toBe(401)
+
+    const unauthorized = await app.request("/api/v1/realtime-ticket", {
+      method: "POST",
+      headers: { origin: ORIGIN, "x-workerbee-workspace": mason.slug },
+    })
+
+    expect(unauthorized.status).toBe(401)
   })
 
   test("a member of one workspace cannot address another", async () => {

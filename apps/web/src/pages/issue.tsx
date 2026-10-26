@@ -49,7 +49,10 @@ export function IssuePage() {
 
   if (summary === undefined) {
     return (
-      <aside className="fixed inset-0 z-30 flex flex-col bg-canvas lg:static lg:z-auto lg:w-[26rem] lg:shrink-0 lg:border-l lg:border-line">
+      <aside
+        aria-label="Issue details"
+        className="fixed inset-0 z-30 flex flex-col bg-canvas lg:static lg:z-auto lg:w-[26rem] lg:shrink-0 lg:border-l lg:border-line"
+      >
         <div className="flex h-12 items-center gap-2 border-b border-line px-3">
           <IconButton label="Close issue" size="sm" onClick={close}>
             <ArrowLeft className="size-4" aria-hidden="true" />
@@ -72,7 +75,10 @@ export function IssuePage() {
     .sort((a, b) => a.position - b.position)
 
   return (
-    <aside className="fixed inset-0 z-30 flex flex-col overflow-y-auto border-l border-line bg-canvas lg:static lg:z-auto lg:w-[26rem] lg:shrink-0">
+    <aside
+      aria-label="Issue details"
+      className="fixed inset-0 z-30 flex flex-col overflow-y-auto border-l border-line bg-canvas lg:static lg:z-auto lg:w-[26rem] lg:shrink-0"
+    >
       <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-line bg-canvas px-3">
         <Tooltip content="Close">
           <IconButton label="Close issue" size="sm" onClick={close}>

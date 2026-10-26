@@ -7,6 +7,7 @@ import { Hono } from "hono"
 import type { AppDeps } from "../deps"
 import { tenantFor } from "../http/tenant"
 import { isPriority } from "../http/validation"
+import { publishCommittedChange } from "../services/publishing"
 import {
   addComment,
   commentsForIssue,
@@ -72,6 +73,8 @@ export function issueRoutes(deps: AppDeps) {
         : {}),
       ...(priority !== undefined ? { priority } : {}),
     })
+
+    await publishCommittedChange(deps, tenant.workspaceId, created.seq)
 
     return c.json(created, 201)
   })
@@ -176,6 +179,8 @@ export function issueRoutes(deps: AppDeps) {
       version,
     )
 
+    await publishCommittedChange(deps, tenant.workspaceId, updated.seq)
+
     return c.json(updated)
   })
 
@@ -216,6 +221,8 @@ export function issueRoutes(deps: AppDeps) {
       body.body.trim(),
       tenant.principal.actorId,
     )
+
+    await publishCommittedChange(deps, tenant.workspaceId, created.seq)
 
     return c.json(created, 201)
   })

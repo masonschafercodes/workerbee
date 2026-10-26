@@ -47,6 +47,11 @@ export const tenantProbes: readonly TenantProbe[] = [
     run: (tenant, foreign) => tenant.commentsForIssue(foreign.issueId),
   },
   {
+    name: "latestSeq",
+    expect: "no-leak",
+    run: (tenant) => tenant.latestSeq(),
+  },
+  {
     name: "changesSince",
     expect: "no-leak",
     run: (tenant) => tenant.changesSince(0, 500),

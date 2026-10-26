@@ -16,10 +16,10 @@ Read before changing behavior:
 ## Current state
 
 Phase 0. Sign-up, workspaces, membership, a tenant-scoped repository, bootstrap, and sync work
-against Postgres. The design system and its gallery exist. `apps/web` has the product shell:
-sign-in, workspace creation, issue list, detail panel, create issue, state and priority changes,
-and comments. There is no `wrangler.jsonc`, no deployed Worker, no live updates, and no boards or
-command palette yet.
+against Postgres. Live updates use a local Bun adapter and have a Durable Object Worker entry, but
+the Wrangler configs and deployment are not in place yet. The design system and its gallery exist.
+`apps/web` has the product shell: sign-in, workspace creation, issue list, detail panel, create
+issue, state and priority changes, and comments. There are no boards or command palette yet.
 
 ## Setup
 
@@ -84,12 +84,14 @@ task db:migrate
 | Path | Owns |
 | --- | --- |
 | `apps/api` | Hono routes, auth mount, tenant resolution, Worker and Bun entries |
-| `apps/web` | Product shell: auth, workspace, issue list, detail, comments |
+| `apps/hub` | Workspace Durable Object, WebSocket hibernation, queue consumer |
+| `apps/web` | Product shell: auth, workspace, issue list, detail, comments, live cache |
 | `apps/design` | Component gallery, design review target |
 | `packages/domain` | Ids, actors, roles, policy, issue and team rules. No IO |
 | `packages/db` | Drizzle schema, migrations, `TenantDb`, isolation probes |
 | `packages/e2e` | HTTP end-to-end suites against a real database |
 | `packages/sync` | Changeset schema, apply, scoped fanout |
+| `packages/realtime` | Tickets, queue notifications, hub replay core and frames |
 | `packages/auth` | Better Auth config and actor projection |
 | `packages/ui` | Tokens and primitives, no product logic |
 | `infra` | OpenTofu bootstrap, modules, environments |

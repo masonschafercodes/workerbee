@@ -85,9 +85,10 @@ task dev
 ```
 
 The API runs on port 3001 and the web app on port 5173. Open
-`http://localhost:5173`. Vite proxies `/api` to the API, so cookies and the
-origin check use the web origin. `BETTER_AUTH_URL` must match the origin you
-open.
+`http://localhost:5173`. Vite proxies `/api` and WebSocket upgrades to the API, so
+cookies and the origin check use the web origin. `BETTER_AUTH_URL` must match the
+origin you open. The Bun API hosts an in-memory local hub; its bounded buffer is
+recreated from Postgres after a process restart, and clients recover through `/sync`.
 
 `.env.dev` is gitignored and loaded by every task. It holds local service
 values: database URLs, the auth secret, the auth origin, ports, and Postgres
@@ -122,10 +123,10 @@ Review the generated schema and migration before committing.
 
 These still do not exist. Providing credentials does not produce a working app.
 
-- `wrangler.jsonc`, the generated bindings file, and the hub worker. The API
-  has a Worker entry point, but it has never been deployed.
-- Boards, the command palette, and live updates. The issue list and detail panel
-  work against the API, but the hub and WebSocket are not built yet.
+- Wrangler configs, the generated bindings file, and deployed API, hub, and web
+  Workers. Worker entry points exist, but no Worker has been deployed.
+- Boards and the command palette. Live updates work locally; queue delivery and
+  the Durable Object deployment still need Wrangler configuration.
 - Row level security policies. The repository wrapper and the isolation suite
   are in place; RLS is the database backstop that comes later.
 - Changeset pruning. The log grows until a scheduled job lands.

@@ -13,6 +13,7 @@
     "@workerbee/auth": "workspace:*",
     "@workerbee/db": "workspace:*",
     "@workerbee/domain": "workspace:*",
+    "@workerbee/realtime": "workspace:*",
     "@workerbee/sync": "workspace:*",
     "hono": "^4.9.0"
   }

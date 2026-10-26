@@ -7,6 +7,7 @@ import { ErrorScreen, LoadingScreen } from "../components/states"
 import { Topbar } from "../components/topbar"
 import { authClient } from "../lib/auth"
 import { useBootstrap, useWorkspaces } from "../lib/hooks"
+import { useRealtime } from "../lib/realtime"
 import { queryClient } from "../lib/query"
 import type { WorkspaceSearch } from "../lib/search"
 
@@ -18,6 +19,7 @@ export function WorkspacePage() {
   const session = authClient.useSession()
   const bootstrap = useBootstrap(slug)
   const workspaces = useWorkspaces()
+  useRealtime(slug, bootstrap.data !== undefined)
   const [createOpen, setCreateOpen] = useState(false)
 
   const teamCounts = useMemo(() => {
@@ -88,7 +90,7 @@ export function WorkspacePage() {
         onSignOut={() => void signOut()}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <main className="flex min-w-0 flex-1 flex-col">
         <Topbar
           workspaceName={data.workspace.name}
           query={search.q}
@@ -116,7 +118,7 @@ export function WorkspacePage() {
 
           <Outlet />
         </div>
-      </div>
+      </main>
 
       <CreateIssueDialog
         slug={slug}

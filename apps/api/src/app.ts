@@ -5,6 +5,7 @@ import { originGuard } from "./http/origin"
 import { authRoutes } from "./routes/auth"
 import { issueRoutes } from "./routes/issues"
 import { protocolRoutes } from "./routes/protocol"
+import { realtimeRoutes } from "./routes/realtime"
 import { syncRoutes } from "./routes/sync"
 import { workspaceRoutes } from "./routes/workspaces"
 
@@ -21,6 +22,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1", workspaceRoutes(deps))
   app.route("/api/v1", issueRoutes(deps))
   app.route("/api/v1", syncRoutes(deps))
+  app.route("/api/v1", realtimeRoutes(deps))
 
   app.notFound((c) => c.json({ error: "not_found" }, 404))
   app.onError(handleError)

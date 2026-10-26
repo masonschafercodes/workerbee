@@ -505,7 +505,7 @@ export class TenantDb {
       const [existing] = await tx.select().from(schema.team).where(byKey).limit(1)
 
       if (existing !== undefined) {
-        return { team: existing, states: await readStates(existing.id) }
+        return { team: existing, states: await readStates(existing.id), seq: null }
       }
 
       const [inserted] = await tx
@@ -526,7 +526,7 @@ export class TenantDb {
           throw new Error("failed to create the team")
         }
 
-        return { team: winner, states: await readStates(winner.id) }
+        return { team: winner, states: await readStates(winner.id), seq: null }
       }
 
       const states =
@@ -546,7 +546,7 @@ export class TenantDb {
               )
               .returning()
 
-      await appendChangeset(tx, this.workspaceId, input.actorId, [
+      const seq = await appendChangeset(tx, this.workspaceId, input.actorId, [
         {
           entity: "team",
           id: inserted.id,
@@ -569,7 +569,7 @@ export class TenantDb {
         })),
       ])
 
-      return { team: inserted, states }
+      return { team: inserted, states, seq }
     })
   }
 
@@ -622,6 +622,16 @@ export class TenantDb {
 
       return { comment: created, seq }
     })
+  }
+
+  async latestSeq(): Promise<number> {
+    const [row] = await this.db
+      .select({ seq: schema.workspaceSeq.seq })
+      .from(schema.workspaceSeq)
+      .where(eq(schema.workspaceSeq.workspaceId, this.workspaceId))
+      .limit(1)
+
+    return row?.seq ?? 0
   }
 
   async changesSince(since: number, limit = 100): Promise<Changeset[]> {

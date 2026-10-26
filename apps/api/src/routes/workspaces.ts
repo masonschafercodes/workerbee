@@ -1,7 +1,8 @@
-import { workspaceSlug } from "@workerbee/domain"
+import { workspaceId as toWorkspaceId, workspaceSlug } from "@workerbee/domain"
 import { Hono } from "hono"
 import type { AppDeps } from "../deps"
 import { sessionUser } from "../http/session"
+import { publishCommittedChange } from "../services/publishing"
 import { createWorkspace, listWorkspaces } from "../services/workspaces"
 
 export function workspaceRoutes(deps: AppDeps) {
@@ -44,7 +45,7 @@ export function workspaceRoutes(deps: AppDeps) {
       return c.json({ error: "invalid_slug" }, 400)
     }
 
-    const workspace = await createWorkspace({
+    const created = await createWorkspace({
       auth: deps.auth,
       db: deps.db,
       userId: user.id,
@@ -53,7 +54,9 @@ export function workspaceRoutes(deps: AppDeps) {
       headers: c.req.raw.headers,
     })
 
-    return c.json(workspace)
+    await publishCommittedChange(deps, toWorkspaceId(created.workspace.id), created.seq)
+
+    return c.json(created.workspace)
   })
 
   return app

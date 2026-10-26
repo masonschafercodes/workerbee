@@ -39,12 +39,14 @@ export function listWorkspaces(db: Database, userId: string) {
 }
 
 async function provisionDefaultTeam(tenant: TenantDb, userId: string) {
-  await tenant.ensureTeam({
+  const provisioned = await tenant.ensureTeam({
     key: "ENG",
     name: "Engineering",
     actorId: actorId(userId),
     states: DEFAULT_TEAM_STATES,
   })
+
+  return provisioned.seq
 }
 
 export type CreateWorkspaceInput = {
@@ -63,7 +65,7 @@ export type CreateWorkspaceInput = {
  */
 export async function createWorkspace(
   input: CreateWorkspaceInput,
-): Promise<WorkspaceRecord> {
+): Promise<{ readonly workspace: WorkspaceRecord; readonly seq: number | null }> {
   const existing = await findWorkspaceBySlug(input.db, input.slug)
 
   if (existing !== null) {
@@ -78,9 +80,9 @@ export async function createWorkspace(
 
     const tenant = new TenantDb(input.db, membership.workspaceId)
 
-    await provisionDefaultTeam(tenant, input.userId)
+    const seq = await provisionDefaultTeam(tenant, input.userId)
 
-    return existing
+    return { workspace: existing, seq }
   }
 
   const organization = await input.auth.api.createOrganization({
@@ -90,7 +92,7 @@ export async function createWorkspace(
 
   const tenant = new TenantDb(input.db, toWorkspaceId(organization.id))
 
-  await provisionDefaultTeam(tenant, input.userId)
+  const seq = await provisionDefaultTeam(tenant, input.userId)
 
-  return organization
+  return { workspace: organization, seq }
 }
