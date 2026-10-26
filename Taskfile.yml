@@ -1,0 +1,155 @@
+version: "3"
+
+dotenv:
+  - .env.dev
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list-all
+
+  setup:
+    desc: Install dependencies, create .env.dev, start Postgres, migrate, and create the test database
+    cmds:
+      - |
+        if [ ! -f .env.dev ]; then
+          cp .env.dev.example .env.dev
+        fi
+      - |
+        if grep -q '^BETTER_AUTH_SECRET=change-me' .env.dev; then
+          secret=$(openssl rand -hex 32)
+          BETTER_AUTH_SECRET_VALUE="$secret" \
+            perl -0pi -e 's/^BETTER_AUTH_SECRET=.*$/BETTER_AUTH_SECRET=$ENV{BETTER_AUTH_SECRET_VALUE}/m' .env.dev
+        fi
+      - bun install
+      - |
+        set -a
+        . ./.env.dev
+        set +a
+        task db:up
+      - |
+        set -a
+        . ./.env.dev
+        set +a
+        bun run --cwd packages/db migrate
+
+  dev:
+    desc: Run the API and web app together
+    deps:
+      - dev:api
+      - dev:web
+
+  dev:api:
+    desc: Run the API on port 3001
+    cmds:
+      - bun run --cwd apps/api dev
+
+  dev:web:
+    desc: Run the web app on port 5173
+    cmds:
+      - bun run --cwd apps/web dev
+
+  design:
+    desc: Run the design gallery on port 5173
+    cmds:
+      - bun run --cwd apps/design dev
+
+  check:
+    desc: Typecheck and run all tests
+    cmds:
+      - bun run check
+
+  test:
+    desc: Run all tests
+    cmds:
+      - bun test
+
+  test:e2e:
+    desc: Run the HTTP end-to-end suites
+    cmds:
+      - bun test packages/e2e
+
+  build:
+    desc: Build the web app and the design gallery
+    cmds:
+      - bun run --cwd apps/web build
+      - bun run --cwd apps/design build
+
+  db:up:
+    desc: Start local Postgres and ensure the test database
+    cmds:
+      - ${CONTAINER_CMD:-docker compose} -f compose.dev.yml up -d
+      - |
+        i=0
+        while [ "$i" -lt 30 ]; do
+          if ${CONTAINER_CMD:-docker compose} -f compose.dev.yml exec -T postgres \
+            pg_isready -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-workerbee}" >/dev/null 2>&1; then
+            exit 0
+          fi
+          i=$((i + 1))
+          sleep 1
+        done
+        echo "Postgres did not become ready" >&2
+        exit 1
+      - task: db:test-db
+
+  db:test-db:
+    desc: Create the test database if it is missing
+    cmds:
+      - |
+        if ${CONTAINER_CMD:-docker compose} -f compose.dev.yml exec -T postgres \
+          psql -U "${POSTGRES_USER:-postgres}" -d postgres -tAc \
+          "SELECT 1 FROM pg_database WHERE datname = '${POSTGRES_TEST_DB:-workerbee_test}'" | grep -q 1; then
+          exit 0
+        fi
+        ${CONTAINER_CMD:-docker compose} -f compose.dev.yml exec -T postgres \
+          createdb -U "${POSTGRES_USER:-postgres}" "${POSTGRES_TEST_DB:-workerbee_test}"
+
+  db:down:
+    desc: Stop local Postgres and keep its data
+    cmds:
+      - ${CONTAINER_CMD:-docker compose} -f compose.dev.yml down
+
+  db:reset:
+    desc: Stop local Postgres and delete its data
+    prompt: This deletes the local database. Continue?
+    cmds:
+      - ${CONTAINER_CMD:-docker compose} -f compose.dev.yml down -v
+
+  db:logs:
+    desc: Follow local Postgres logs
+    cmds:
+      - ${CONTAINER_CMD:-docker compose} -f compose.dev.yml logs -f postgres
+
+  db:migrate:
+    desc: Apply database migrations
+    cmds:
+      - bun run --cwd packages/db migrate
+
+  db:generate:
+    desc: Generate a migration from schema changes
+    cmds:
+      - bun run --cwd packages/db generate
+
+  db:studio:
+    desc: Open Drizzle Studio
+    cmds:
+      - bun run --cwd packages/db studio
+
+  db:auth-schema:
+    desc: Regenerate Better Auth tables and a migration
+    cmds:
+      - bunx --bun auth@1.7.13 generate --cwd packages/auth --config src/cli.ts --output ../db/src/schema/auth.ts --adapter drizzle --dialect postgresql -y
+      - task: db:generate
+
+  infra:fmt:
+    desc: Format OpenTofu files
+    cmds:
+      - tofu fmt -recursive infra
+
+  infra:validate:
+    desc: Validate the dev OpenTofu environment without a backend
+    cmds:
+      - tofu -chdir=infra/envs/dev init -backend=false -input=false
+      - tofu -chdir=infra/envs/dev validate
