@@ -43,6 +43,9 @@ origin you open.
 | `TEST_DATABASE_URL` | Integration suites | Separate database, truncated by tests |
 
 Task loads `.env.dev` for every command. `task setup` creates it from `.env.dev.example`.
+If you rotate `BETTER_AUTH_SECRET`, run `task db:reset-auth` and sign in again. The stored JWKS
+keys are encrypted with the old secret.
+
 Never commit `.env.dev`, `.dev.vars`, `terraform.tfvars`, `backend.hcl`, or OpenTofu state. The credentials
 and bootstrap order are in [Setup](docs/SETUP.md).
 

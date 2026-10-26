@@ -93,6 +93,9 @@ open.
 values: database URLs, the auth secret, the auth origin, ports, and Postgres
 settings. Cloud credentials do not belong there.
 
+If you change `BETTER_AUTH_SECRET`, run `task db:reset-auth`, then sign in again. Better Auth
+cannot decrypt keys created with the old secret.
+
 Run `task --list` for everything. The common tasks are `task check`,
 `task test:e2e`, `task db:migrate`, `task db:generate`, `task db:studio`,
 `task db:reset`, `task design`, `task build`, and `task infra:validate`.

@@ -136,6 +136,11 @@ tasks:
     cmds:
       - bun run --cwd packages/db studio
 
+  db:reset-auth:
+    desc: Clear JWKS keys and sessions after changing BETTER_AUTH_SECRET
+    cmds:
+      - bun run --cwd packages/db reset-auth
+
   db:auth-schema:
     desc: Regenerate Better Auth tables and a migration
     cmds:
