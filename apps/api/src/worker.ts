@@ -1,5 +1,5 @@
 import { createAuth } from "@workerbee/auth"
-import { createDb, listWorkspaceSequences } from "@workerbee/db"
+import { createDb, listWorkspaceSequences, type Db } from "@workerbee/db"
 import { createApp } from "./app"
 import {
   DurableObjectHubRouter,
@@ -10,50 +10,52 @@ export type Env = ApiEnv & {
   readonly BETTER_AUTH_SECRET: string
 }
 
-type Cached = {
-  key: string
-  app: ReturnType<typeof createApp>
-}
-
-let cached: Cached | null = null
-
-function appFor(env: Env): ReturnType<typeof createApp> {
-  const key = `${env.BETTER_AUTH_URL}:${env.BETTER_AUTH_SECRET}:${env.HYPERDRIVE.connectionString}`
-
-  if (cached?.key === key) {
-    return cached.app
-  }
-
-  const { db } = createDb(env.HYPERDRIVE.connectionString)
+function dependencies(env: Env): { app: ReturnType<typeof createApp>; db: Db } {
+  const db = createDb(env.HYPERDRIVE.connectionString, 1)
   const auth = createAuth({
-    db,
+    db: db.db,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
   })
 
-  cached = {
-    key,
-    app: createApp({
-      auth,
-      db,
-      origin: env.BETTER_AUTH_URL,
-      realtime: {
-        secret: env.BETTER_AUTH_SECRET,
-        publisher: new QueueChangePublisher(env.REALTIME_QUEUE),
-        hub: new DurableObjectHubRouter(env.HUB),
-      },
-    }),
-  }
+  const app = createApp({
+    auth,
+    db: db.db,
+    origin: env.BETTER_AUTH_URL,
+    realtime: {
+      secret: env.BETTER_AUTH_SECRET,
+      publisher: new QueueChangePublisher(env.REALTIME_QUEUE),
+      hub: new DurableObjectHubRouter(env.HUB),
+    },
+  })
 
-  return cached.app
+  return { app, db }
+}
+
+async function closeQuietly(db: Db): Promise<void> {
+  try {
+    await db.pool.end()
+  } catch {
+    // A request that already produced a response wins. Hyperdrive also reaps
+    // the connection when the isolate discards it.
+  }
 }
 
 export default {
-  fetch(request: Request, env: Env): Response | Promise<Response> {
-    return appFor(env).fetch(request)
+  async fetch(request: Request, env: Env): Promise<Response> {
+    // Hyperdrive pools connections itself, and Workers cannot keep a socket
+    // between requests. A cached pg Pool inside the isolate therefore hands
+    // out dead connections, which the runtime cancels as a hung request.
+    const { app, db } = dependencies(env)
+
+    try {
+      return await app.fetch(request)
+    } finally {
+      await closeQuietly(db)
+    }
   },
   async scheduled(_controller: unknown, env: Env): Promise<void> {
-    const { db, pool } = createDb(env.HYPERDRIVE.connectionString)
+    const { db, pool } = createDb(env.HYPERDRIVE.connectionString, 1)
 
     try {
       const sequences = await listWorkspaceSequences(db)
