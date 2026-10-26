@@ -56,7 +56,7 @@ variable "r2_location" {
 
 variable "neon_region" {
   type    = string
-  default = "aws-eu-central-1"
+  default = "aws-us-east-2"
 }
 
 provider "cloudflare" {

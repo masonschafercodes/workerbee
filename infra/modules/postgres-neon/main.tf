@@ -32,8 +32,7 @@ variable "org_id" {
 }
 
 variable "region_id" {
-  type    = string
-  default = "aws-eu-central-1"
+  type = string
 }
 
 variable "pg_version" {
