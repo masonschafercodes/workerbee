@@ -65,6 +65,7 @@ and bootstrap order are in [Setup](docs/SETUP.md).
 | Full gate | `TEST_DATABASE_URL=... bun run check` |
 | Typecheck only | `bun run typecheck` |
 | Tests | `bun test` |
+| E2E only | `bun test packages/e2e` |
 | API dev server | `bun run --cwd apps/api dev` |
 | Web app | `bun run --cwd apps/web dev` |
 | Design gallery | `bun run --cwd apps/design dev` |
@@ -97,6 +98,7 @@ bunx --bun auth@1.7.13 generate --cwd packages/auth --config src/cli.ts \
 | `apps/design` | Component gallery, design review target |
 | `packages/domain` | Ids, actors, roles, policy, issue and team rules. No IO |
 | `packages/db` | Drizzle schema, migrations, `TenantDb`, isolation probes |
+| `packages/e2e` | HTTP end-to-end suites against a real database |
 | `packages/sync` | Changeset schema, apply, scoped fanout |
 | `packages/auth` | Better Auth config and actor projection |
 | `packages/ui` | Tokens and primitives, no product logic |
@@ -191,8 +193,8 @@ bunx --bun auth@1.7.13 generate --cwd packages/auth --config src/cli.ts \
 
 ## Testing
 
-- Colocate unit tests as `*.test.ts`. HTTP flows use `*.e2e.test.ts` and require
-  `TEST_DATABASE_URL`.
+- Colocate unit tests as `*.test.ts`. HTTP end-to-end suites live in `packages/e2e`
+  and require `TEST_DATABASE_URL`.
 - Test behavior, not implementation. A test that cannot fail when the feature breaks is not a test.
 - Reproduce a bug in a user-shaped path before fixing it.
 - UI verification is blackbox: gallery or product flow, keyboard, axe, screenshots at 390px
