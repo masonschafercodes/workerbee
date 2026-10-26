@@ -17,6 +17,10 @@ export function useBootstrap(slug: string) {
   return useQuery({
     queryKey: keys.bootstrap(slug),
     queryFn: () => api.bootstrap(slug),
+    // Realtime frames keep issues and comments current, so refetching the
+    // whole snapshot on every navigation only adds latency. The workspaces
+    // list stays on the default stale time because nothing pushes to it.
+    staleTime: 300_000,
   })
 }
 
