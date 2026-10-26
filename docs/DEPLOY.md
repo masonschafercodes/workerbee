@@ -4,21 +4,19 @@ Use this guide after [bootstrapping OpenTofu state](SETUP.md#one-time-bootstrap)
 
 ## Prepare credentials
 
-Run `task setup` to create `.env.dev` and a Better Auth secret. Keep Cloudflare and Neon credentials in your shell or password manager. Do not put them in `.env.dev`.
+Run `task setup` to create `.env.dev` and a Better Auth secret. Keep Cloudflare and Neon credentials out of `.env.dev`.
 
-Set these values in your shell:
+Copy the deploy credential template and fill it once:
 
 ```sh
-export TF_VAR_account_id=...
-export TF_VAR_cloudflare_api_token=...
-export TF_VAR_neon_org_id=org-...
-export NEON_API_KEY=...
-export AWS_ACCESS_KEY_ID=...
-export AWS_SECRET_ACCESS_KEY=...
-export WORKERBEE_HOSTNAME=issues.example.com
+cp infra/envs/dev/deploy.env.example infra/envs/dev/deploy.env
+nano infra/envs/dev/deploy.env
+chmod 600 infra/envs/dev/deploy.env
 ```
 
-Copy `infra/envs/dev/backend.hcl.example` to `infra/envs/dev/backend.hcl` if you have not configured the backend. Set the Cloudflare account id in that file.
+The Taskfile loads this ignored file for infrastructure and deployment tasks. It stores the Cloudflare account id and token, the Neon organization id and API key, the R2 state credentials, and `WORKERBEE_HOSTNAME`. Keep the file private and never commit it.
+
+The task generates `infra/envs/dev/backend.hcl` from the account id. You only need to edit `deploy.env` again when a credential or hostname changes.
 
 ## Deploy and smoke test
 
@@ -40,7 +38,7 @@ task infra:plan
 To run the smoke test again, use:
 
 ```sh
-WORKERBEE_URL="https://${WORKERBEE_HOSTNAME}" task smoke:dev
+task smoke:dev
 ```
 
 The smoke test uses a stable account and workspace for the hostname and Better Auth secret. It creates one issue on its first run. Later runs change that issue's state from a second authenticated WebSocket client. Rotating the auth secret creates a new fixture instead of reusing an invalid password.

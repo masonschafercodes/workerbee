@@ -7,14 +7,14 @@ code rather than configuration.
 
 | What | Where it goes | Secret | Where to get it |
 | --- | --- | --- | --- |
-| Cloudflare account id | `TF_VAR_account_id` or `infra/envs/dev/terraform.tfvars` | no | Cloudflare dashboard, account home |
-| Cloudflare API token | `TF_VAR_cloudflare_api_token` | yes | My Profile, API Tokens |
-| Neon organization id | `TF_VAR_neon_org_id` | no | Neon console, Account settings, Organization settings |
-| Neon API key | `NEON_API_KEY` in the environment | yes | Neon console, Account settings, API keys |
-| R2 access key id | `AWS_ACCESS_KEY_ID` | yes | R2 API token created after bootstrap |
-| R2 secret access key | `AWS_SECRET_ACCESS_KEY` | yes | R2 API token created after bootstrap |
-| State backend config | `infra/envs/dev/backend.hcl` | no | Copy from `backend.hcl.example`, fill the account id |
-| Dev hostname | `WORKERBEE_HOSTNAME` during deployment | no | A hostname in a Cloudflare zone on the account |
+| Cloudflare account id | `TF_VAR_account_id` in `infra/envs/dev/deploy.env` | no | Cloudflare dashboard, account home |
+| Cloudflare API token | `TF_VAR_cloudflare_api_token` in `infra/envs/dev/deploy.env` | yes | My Profile, API Tokens |
+| Neon organization id | `TF_VAR_neon_org_id` in `infra/envs/dev/deploy.env` | no | Neon console, Account settings, Organization settings |
+| Neon API key | `NEON_API_KEY` in `infra/envs/dev/deploy.env` | yes | Neon console, Account settings, API keys |
+| R2 access key id | `AWS_ACCESS_KEY_ID` in `infra/envs/dev/deploy.env` | yes | R2 API token created after bootstrap |
+| R2 secret access key | `AWS_SECRET_ACCESS_KEY` in `infra/envs/dev/deploy.env` | yes | R2 API token created after bootstrap |
+| State backend config | `infra/envs/dev/backend.hcl` | no | Generated from `TF_VAR_account_id` in `deploy.env` by `task infra:init` |
+| Dev hostname | `WORKERBEE_HOSTNAME` in `infra/envs/dev/deploy.env` | no | A hostname in a Cloudflare zone on the account |
 | Smoke URL | `WORKERBEE_URL` for `task smoke:dev` | no | Defaults to `https://$WORKERBEE_HOSTNAME` |
 
 `NEON_API_KEY` is read by the Neon provider directly. It is never a Terraform
@@ -35,41 +35,30 @@ The token also needs Workers Scripts access for Wrangler deploys.
 
 ## One-time bootstrap
 
-The state bucket has to exist before any environment can use it, so it is created
-with a local state file.
+The state bucket must exist before OpenTofu can store environment state. Store the deployment credentials in one ignored file so you do not re-enter them for each task.
 
 ```sh
-export CLOUDFLARE_ACCOUNT_ID=...
-export CLOUDFLARE_API_TOKEN=...
-
-tofu -chdir=infra/bootstrap init
-tofu -chdir=infra/bootstrap apply \
-  -var="account_id=$CLOUDFLARE_ACCOUNT_ID" \
-  -var="cloudflare_api_token=$CLOUDFLARE_API_TOKEN"
+cp infra/envs/dev/deploy.env.example infra/envs/dev/deploy.env
+nano infra/envs/dev/deploy.env
+chmod 600 infra/envs/dev/deploy.env
 ```
 
-Then create an R2 API token scoped to the state bucket with Object Read and
-Write. Put its key id and secret in `AWS_ACCESS_KEY_ID` and
-`AWS_SECRET_ACCESS_KEY`. OpenTofu cannot bootstrap its own state credentials,
-so this one token is created by hand.
+First, fill `TF_VAR_account_id` and `TF_VAR_cloudflare_api_token`. Then create the state bucket:
 
 ```sh
-cp infra/envs/dev/backend.hcl.example infra/envs/dev/backend.hcl
-$EDITOR infra/envs/dev/backend.hcl   # fill in the account id
-
-export NEON_API_KEY=...
-export TF_VAR_account_id=$CLOUDFLARE_ACCOUNT_ID
-export TF_VAR_cloudflare_api_token=$CLOUDFLARE_API_TOKEN
-export TF_VAR_neon_org_id=org-...
-
-tofu -chdir=infra/envs/dev init -backend-config=backend.hcl
-tofu -chdir=infra/envs/dev apply
+task infra:bootstrap
 ```
 
-The first apply creates two R2 buckets, two queues, one Neon project, and one
-Hyperdrive config. The Neon project is guarded by `prevent_destroy`. The dev
-hostname is attached after Wrangler deploys the web Worker. See [Deploy the dev
-environment](DEPLOY.md) for the full sequence.
+Create one R2 API token in the Cloudflare dashboard. Scope it to the `workerbee-tofu-state` bucket with Object Read and Write. Copy its Access Key ID and Secret Access Key into `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `deploy.env`. Cloudflare shows the secret only once. This is a one-time dashboard step. The routine deploy task reuses these credentials from the file.
+
+Fill `TF_VAR_neon_org_id` and `NEON_API_KEY` in the same file. Then run:
+
+```sh
+task infra:init
+task infra:apply
+```
+
+`task infra:init` generates `infra/envs/dev/backend.hcl` from the account id. The first apply creates two R2 buckets, two queues, one Neon project, and one Hyperdrive config. The Neon project is guarded by `prevent_destroy`. Add `WORKERBEE_HOSTNAME` to `deploy.env` when you are ready to deploy the Workers. See [Deploy the dev environment](DEPLOY.md) for the full sequence.
 
 ## Local development
 

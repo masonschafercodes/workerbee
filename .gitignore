@@ -17,6 +17,7 @@ apps/*/wrangler.generated.jsonc
 *.tfstate.*
 *.tfplan
 **/backend.hcl
+infra/envs/dev/deploy.env
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl.tmp

@@ -47,7 +47,7 @@ Task loads `.env.dev` for every command. `task setup` creates it from `.env.dev.
 If you rotate `BETTER_AUTH_SECRET`, run `task db:reset-auth` and sign in again. The stored JWKS
 keys are encrypted with the old secret.
 
-Never commit `.env.dev`, `.dev.vars`, `terraform.tfvars`, `backend.hcl`, or OpenTofu state. The credentials
+Never commit `.env.dev`, `.dev.vars`, `infra/envs/dev/deploy.env`, `terraform.tfvars`, `backend.hcl`, or OpenTofu state. The credentials
 and bootstrap order are in [Setup](docs/SETUP.md).
 
 ## Commands
