@@ -14,7 +14,6 @@
     "@workerbee/db": "workspace:*",
     "@workerbee/domain": "workspace:*",
     "@workerbee/sync": "workspace:*",
-    "drizzle-orm": "^0.45.4",
     "hono": "^4.9.0"
   }
 }

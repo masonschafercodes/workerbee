@@ -16,7 +16,6 @@
         "@workerbee/db": "workspace:*",
         "@workerbee/domain": "workspace:*",
         "@workerbee/sync": "workspace:*",
-        "drizzle-orm": "^0.45.4",
         "hono": "^4.9.0",
       },
     },
@@ -86,6 +85,16 @@
     },
     "packages/domain": {
       "name": "@workerbee/domain",
+    },
+    "packages/e2e": {
+      "name": "@workerbee/e2e",
+      "dependencies": {
+        "@workerbee/api": "workspace:*",
+        "@workerbee/auth": "workspace:*",
+        "@workerbee/db": "workspace:*",
+        "@workerbee/domain": "workspace:*",
+        "drizzle-orm": "^0.45.4",
+      },
     },
     "packages/sync": {
       "name": "@workerbee/sync",
@@ -448,6 +457,8 @@
     "@workerbee/design": ["@workerbee/design@workspace:apps/design"],
 
     "@workerbee/domain": ["@workerbee/domain@workspace:packages/domain"],
+
+    "@workerbee/e2e": ["@workerbee/e2e@workspace:packages/e2e"],
 
     "@workerbee/sync": ["@workerbee/sync@workspace:packages/sync"],
 
