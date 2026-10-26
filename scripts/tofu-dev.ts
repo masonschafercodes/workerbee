@@ -1,4 +1,5 @@
 import { resolve } from "node:path"
+import { normalizeHostname, normalizeHostnameFromState } from "./hostname"
 
 const root = resolve(import.meta.dir, "..")
 const action = process.argv[2]
@@ -15,21 +16,19 @@ function hostnameFromState(): string {
     stderr: "ignore",
   })
 
-  return result.exitCode === 0 ? result.stdout.toString().trim() : ""
+  return result.exitCode === 0
+    ? normalizeHostnameFromState(result.stdout.toString())
+    : ""
 }
 
 const hostnameArgument = process.argv.indexOf("--hostname")
+const explicitHostname = hostnameArgument >= 0 ? process.argv[hostnameArgument + 1] : undefined
 const hostname =
-  hostnameArgument >= 0 ? process.argv[hostnameArgument + 1] : hostnameFromState()
-
-if (hostname === undefined) {
-  throw new Error("Expected a value after --hostname")
-}
-
-if (hostname.includes(":") || hostname.includes("/")) {
-  throw new Error("WORKERBEE_HOSTNAME must be a bare hostname")
-}
-
+  explicitHostname === undefined
+    ? hostnameFromState()
+    : explicitHostname === ""
+      ? ""
+      : normalizeHostname(explicitHostname)
 const command = action === "check" ? "plan" : action
 const args = ["tofu", "-chdir=infra/envs/dev", command, `-var=hostname=${hostname}`]
 

@@ -14,7 +14,7 @@ code rather than configuration.
 | R2 access key id | `AWS_ACCESS_KEY_ID` in `infra/envs/dev/deploy.env` | yes | R2 API token created after bootstrap |
 | R2 secret access key | `AWS_SECRET_ACCESS_KEY` in `infra/envs/dev/deploy.env` | yes | R2 API token created after bootstrap |
 | State backend config | `infra/envs/dev/backend.hcl` | no | Generated from `TF_VAR_account_id` in `deploy.env` by `task infra:init` |
-| Dev hostname | `WORKERBEE_HOSTNAME` in `infra/envs/dev/deploy.env` | no | A hostname in a Cloudflare zone on the account |
+| Dev hostname | `WORKERBEE_HOSTNAME` in `infra/envs/dev/deploy.env` | no | A bare hostname in a Cloudflare zone on the account |
 | Smoke URL | `WORKERBEE_URL` for `task smoke:dev` | no | Defaults to `https://$WORKERBEE_HOSTNAME` |
 
 `NEON_API_KEY` is read by the Neon provider directly. It is never a Terraform

@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
+import { normalizeHostname, normalizeHostnameFromState } from "./hostname"
 import { z } from "zod"
 
 const root = resolve(import.meta.dir, "..")
@@ -126,10 +127,6 @@ async function main(): Promise<void> {
     throw new Error("--hostname can only be used with --from-tofu")
   }
 
-  if (hostnameOverride !== undefined && /[/:]/.test(hostnameOverride)) {
-    throw new Error("WORKERBEE_HOSTNAME must be a bare hostname")
-  }
-
   let bindings: z.infer<typeof bindingsSchema>
 
   if (useExample) {
@@ -141,7 +138,10 @@ async function main(): Promise<void> {
     const stateHostname = z.string().parse(runTofuOutput("web_hostname"))
     const fromState = bindingsSchema.parse({
       ...tofuBindings,
-      web_hostname: hostnameOverride ?? stateHostname,
+      web_hostname:
+        hostnameOverride === undefined
+          ? normalizeHostnameFromState(stateHostname)
+          : normalizeHostname(hostnameOverride),
     })
 
     if (checkTofu) {

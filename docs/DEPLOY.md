@@ -6,7 +6,7 @@ Use this guide after [bootstrapping OpenTofu state](SETUP.md#one-time-bootstrap)
 
 Run `task setup` to create `.env.dev` and a Better Auth secret. Keep Cloudflare and Neon credentials out of `.env.dev`.
 
-Copy the deploy credential template and fill it once:
+Set `WORKERBEE_HOSTNAME` to a bare hostname, such as `issues.example.com`, with no scheme, port, or path. Copy the deploy credential template and fill it once:
 
 ```sh
 cp infra/envs/dev/deploy.env.example infra/envs/dev/deploy.env
