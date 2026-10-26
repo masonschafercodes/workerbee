@@ -23,8 +23,11 @@ export interface HubRouter {
 export async function publishBestEffort(
   publisher: ChangePublisher,
   notification: ChangeNotification,
+  onFailure: (error: unknown) => void = () => {},
 ): Promise<void> {
   try {
     await publisher.publish(notification)
-  } catch {}
+  } catch (error) {
+    onFailure(error)
+  }
 }

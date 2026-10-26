@@ -9,6 +9,7 @@ const app = createApp({
   } as unknown as Auth,
   db: {} as unknown as Database,
   origin: "http://localhost:3001",
+  telemetry: { capture() {}, captureException() {}, log() {} },
   realtime: {
     secret: "test-secret-0123456789abcdef0123456789abcdef",
     publisher: { async publish() {} },

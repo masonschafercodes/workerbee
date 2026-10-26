@@ -1,5 +1,6 @@
 import { createAuth } from "@workerbee/auth"
 import { createDb } from "@workerbee/db"
+import { createTelemetry } from "@workerbee/telemetry"
 import { createApp } from "./app"
 import { LocalHub } from "./local-hub"
 
@@ -24,6 +25,14 @@ const app = createApp({
   auth,
   db,
   origin: baseURL,
+  telemetry: createTelemetry({
+    key: Bun.env.POSTHOG_KEY,
+    host: Bun.env.POSTHOG_HOST,
+    service: "workerbee-api-local",
+    waitUntil: (promise) => {
+      void promise
+    },
+  }),
   realtime: { secret, publisher: hub, hub },
 })
 

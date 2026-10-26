@@ -33,6 +33,17 @@ The Cloudflare token needs, at minimum:
 The Workers Custom Domain resource creates the dev hostname through OpenTofu.
 The token also needs Workers Scripts access for Wrangler deploys.
 
+## PostHog (optional)
+
+Set the PostHog project token in `.env.dev`. `task build` bakes it into the web bundle, and the deploy task sets it as a Worker secret for the API and hub. Leave `POSTHOG_KEY` empty to disable analytics, error tracking, and logs entirely.
+
+| Variable | Used by | Notes |
+| --- | --- | --- |
+| `POSTHOG_KEY` | Web build, API, hub | Project token, starts with `phc_`. Publishable, but kept out of git |
+| `POSTHOG_HOST` | Web build, API, hub | `https://us.i.posthog.com` or `https://eu.i.posthog.com` |
+
+The web app captures pageviews, exceptions, and identified users, and feature flags load in the browser through `useFeatureFlag`. Identifying a user sends their email and name to PostHog. The API and hub capture unhandled errors and send structured logs to PostHog Logs. Local runs and tests stay silent while the key is empty.
+
 ## One-time bootstrap
 
 The state bucket must exist before OpenTofu can store environment state. Store the deployment credentials in one ignored file so you do not re-enter them for each task.

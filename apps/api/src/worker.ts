@@ -1,5 +1,6 @@
 import { createAuth } from "@workerbee/auth"
 import { createDb, listWorkspaceSequences, type Db } from "@workerbee/db"
+import { createTelemetry } from "@workerbee/telemetry"
 import { createApp } from "./app"
 import {
   DurableObjectHubRouter,
@@ -8,9 +9,14 @@ import {
 
 export type Env = ApiEnv & {
   readonly BETTER_AUTH_SECRET: string
+  readonly POSTHOG_KEY?: string
+  readonly POSTHOG_HOST?: string
 }
 
-function dependencies(env: Env): { app: ReturnType<typeof createApp>; db: Db } {
+function dependencies(
+  env: Env,
+  waitUntil: (promise: Promise<unknown>) => void,
+): { app: ReturnType<typeof createApp>; db: Db } {
   const db = createDb(env.HYPERDRIVE.connectionString, 1)
   const auth = createAuth({
     db: db.db,
@@ -22,6 +28,12 @@ function dependencies(env: Env): { app: ReturnType<typeof createApp>; db: Db } {
     auth,
     db: db.db,
     origin: env.BETTER_AUTH_URL,
+    telemetry: createTelemetry({
+      key: env.POSTHOG_KEY,
+      host: env.POSTHOG_HOST,
+      service: "workerbee-api",
+      waitUntil,
+    }),
     realtime: {
       secret: env.BETTER_AUTH_SECRET,
       publisher: new QueueChangePublisher(env.REALTIME_QUEUE),
@@ -42,11 +54,11 @@ async function closeQuietly(db: Db): Promise<void> {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Hyperdrive pools connections itself, and Workers cannot keep a socket
     // between requests. A cached pg Pool inside the isolate therefore hands
     // out dead connections, which the runtime cancels as a hung request.
-    const { app, db } = dependencies(env)
+    const { app, db } = dependencies(env, (promise) => ctx.waitUntil(promise))
 
     try {
       return await app.fetch(request)

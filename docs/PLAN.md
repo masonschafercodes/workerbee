@@ -366,8 +366,9 @@ explicit step, never on worker boot.
 
 **Phase 1, core loop.** Phase 0 is complete. Landed: workspaces, teams, membership, issues,
 workflow states, priorities, comments, changesets, `/sync`, the hub WebSocket, and two-way live
-updates. The dev environment is deployed at the configured hostname. Agent actors exist in the
-domain and policy, with no agent-facing surface yet.
+updates. The dev environment is deployed at the configured hostname. PostHog captures web
+analytics, exceptions, structured logs, and feature flags in dev. Agent actors exist in the domain
+and policy, with no agent-facing surface yet.
 
 Phase 1 still needs:
 

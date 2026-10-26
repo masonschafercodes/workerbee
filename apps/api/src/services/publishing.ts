@@ -11,5 +11,11 @@ export function publishCommittedChange(
     return Promise.resolve()
   }
 
-  return publishBestEffort(deps.realtime.publisher, { workspaceId, seq })
+  return publishBestEffort(deps.realtime.publisher, { workspaceId, seq }, (error) => {
+    deps.telemetry.log("warn", "queue publish failed", {
+      workspace_id: workspaceId,
+      seq,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  })
 }
