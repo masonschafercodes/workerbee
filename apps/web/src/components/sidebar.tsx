@@ -34,7 +34,10 @@ export function Sidebar({
   onSignOut,
 }: SidebarProps) {
   return (
-    <aside className="hidden w-52 shrink-0 flex-col border-r border-line bg-canvas lg:flex">
+    <aside
+      aria-label="Workspace navigation"
+      className="hidden w-52 shrink-0 flex-col border-r border-line bg-canvas lg:flex"
+    >
       <div className="flex h-12 items-center gap-2 px-3">
         <span
           className="grid size-5 place-items-center rounded-[5px] bg-accent-solid text-2xs font-semibold text-on-accent"

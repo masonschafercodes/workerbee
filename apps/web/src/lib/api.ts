@@ -1,3 +1,8 @@
+import {
+  realtimeTicketResponseSchema,
+  syncResponseSchema,
+} from "@workerbee/realtime"
+import type { Changeset } from "@workerbee/realtime"
 import type {
   Bootstrap,
   Comment,
@@ -55,6 +60,24 @@ export const api = {
 
   bootstrap(slug: string): Promise<Bootstrap> {
     return request<Bootstrap>("/api/v1/bootstrap", { headers: workspaceHeaders(slug) })
+  },
+
+  async sync(slug: string, since: number): Promise<Changeset[]> {
+    const response: unknown = await request<unknown>(
+      `/api/v1/sync?since=${since}&limit=500`,
+      { headers: workspaceHeaders(slug) },
+    )
+
+    return syncResponseSchema.parse(response).changesets
+  },
+
+  async realtimeTicket(slug: string): Promise<{ readonly ticket: string; readonly expiresAt: number }> {
+    const response: unknown = await request<unknown>("/api/v1/realtime-ticket", {
+      method: "POST",
+      headers: workspaceHeaders(slug),
+    })
+
+    return realtimeTicketResponseSchema.parse(response)
   },
 
   async issue(slug: string, id: string): Promise<Issue> {

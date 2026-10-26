@@ -14,8 +14,8 @@ export type Db = {
  * Hyperdrive connection string, local development passes a localhost URL, and
  * tests pass a scratch database.
  */
-export function createDb(connectionString: string): Db {
-  const pool = new Pool({ connectionString, max: 10 })
+export function createDb(connectionString: string, maxConnections = 10): Db {
+  const pool = new Pool({ connectionString, max: maxConnections })
 
   return { db: drizzle(pool, { schema }), pool }
 }

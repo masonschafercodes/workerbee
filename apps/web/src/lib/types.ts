@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 export type WorkspaceRole = "owner" | "admin" | "member"
 
 export type Workspace = {
@@ -33,41 +35,47 @@ export type Member = {
 
 export type Priority = "none" | "urgent" | "high" | "medium" | "low"
 
-export type IssueSummary = {
-  id: string
-  teamId: string
-  number: number
-  identifier: string
-  title: string
-  stateId: string
-  priority: Priority
-  assigneeId: string | null
-  parentId: string | null
-  updatedAt: string
-  version: number
-}
+export const issueSummarySchema = z.object({
+  id: z.string(),
+  teamId: z.string(),
+  number: z.number().int(),
+  identifier: z.string(),
+  title: z.string(),
+  stateId: z.string(),
+  priority: z.enum(["none", "urgent", "high", "medium", "low"]),
+  assigneeId: z.string().nullable(),
+  parentId: z.string().nullable(),
+  updatedAt: z.string(),
+  version: z.number().int(),
+})
 
-export type Issue = IssueSummary & {
-  workspaceId: string
-  description: string
-  creatorId: string
-  projectId: string | null
-  cycleId: string | null
-  estimate: number | null
-  dueDate: string | null
-  archivedAt: string | null
-  createdAt: string
-}
+export type IssueSummary = z.infer<typeof issueSummarySchema>
 
-export type Comment = {
-  id: string
-  issueId: string
-  authorId: string
-  authorName: string | null
-  body: string
-  createdAt: string
-  editedAt: string | null
-}
+export const issueSchema = issueSummarySchema.extend({
+  workspaceId: z.string(),
+  description: z.string(),
+  creatorId: z.string(),
+  projectId: z.string().nullable(),
+  cycleId: z.string().nullable(),
+  estimate: z.number().nullable(),
+  dueDate: z.string().nullable(),
+  archivedAt: z.string().nullable(),
+  createdAt: z.string(),
+})
+
+export type Issue = z.infer<typeof issueSchema>
+
+export const commentSchema = z.object({
+  id: z.string(),
+  issueId: z.string(),
+  authorId: z.string(),
+  authorName: z.string().nullable(),
+  body: z.string(),
+  createdAt: z.string(),
+  editedAt: z.string().nullable(),
+})
+
+export type Comment = z.infer<typeof commentSchema>
 
 export type Bootstrap = {
   seq: number

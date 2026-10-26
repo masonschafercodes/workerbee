@@ -1,0 +1,13 @@
+{
+  "name": "@workerbee/realtime",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@workerbee/domain": "workspace:*",
+    "@workerbee/sync": "workspace:*",
+    "zod": "^4.0.0"
+  }
+}

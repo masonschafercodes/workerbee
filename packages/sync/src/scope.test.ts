@@ -31,7 +31,7 @@ describe("scoped fanout", () => {
     expect(visible?.changes.map((change) => change.teamId)).toEqual(["eng", null])
   })
 
-  test("a changeset with nothing visible becomes null", () => {
+  test("a changeset with nothing visible is excluded", () => {
     expect(visibleChanges(changeset(["ops"]), ["eng"])).toBeNull()
   })
 

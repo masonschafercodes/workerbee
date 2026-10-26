@@ -16,7 +16,7 @@ export function isVisible(change: Change, scope: TeamScope): boolean {
 
 /**
  * Returns the changeset with only the changes the scope can read, or null when
- * nothing is visible. A null result means the hub sends no frame at all.
+ * the changeset contains no visible changes.
  */
 export function visibleChanges(changeset: Changeset, scope: TeamScope): Changeset | null {
   const changes = changeset.changes.filter((change) => isVisible(change, scope))

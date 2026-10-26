@@ -10,6 +10,7 @@
     "@workerbee/auth": "workspace:*",
     "@workerbee/db": "workspace:*",
     "@workerbee/domain": "workspace:*",
+    "@workerbee/realtime": "workspace:*",
     "drizzle-orm": "^0.45.4"
   }
 }
