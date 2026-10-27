@@ -69,7 +69,7 @@ and bootstrap order are in [Setup](docs/SETUP.md).
 | Infra plan, apply, and bindings | `task infra:plan`, `task infra:apply`, `task infra:bindings` |
 | Generated bindings check | `task infra:bindings:check` |
 | Wrangler validation | `task wrangler:dry-run` |
-| Deploy dev | `task deploy:dev` |
+| Deploy dev | CI on merge to `main` |
 | Smoke dev | `task smoke:dev` |
 
 `task setup` creates `workerbee_test`. The suites truncate every table in whatever
@@ -91,9 +91,19 @@ task ops -- db query --remote "select now()"
 `api` and `probe` default to the deployed dev origin. Pass `--url http://localhost:5173` to target
 a running local stack. The first `api` call against an origin creates a deterministic ops account
 and workspace there. `db` defaults to the local database, accepts `--database test`, and requires
-`--write` for anything that is not a read. `task deploy:dev` ends with `probe`, so a deploy fails
-when the served bundle is wrong. Do not source env files in a shell or assemble `curl` requests
-when a subcommand exists. Add a subcommand when the need recurs.
+`--write` for anything that is not a read. The CI deploy ends with `probe`, so a deploy fails when
+the served bundle is wrong. Do not source env files in a shell or assemble `curl` requests when a
+subcommand exists. Add a subcommand when the need recurs.
+
+### Deploys
+
+Merging to `main` runs the deploy job in `.github/workflows/ci.yml` after the check and infra jobs
+pass. It runs `scripts/deploy-dev.ts`, which builds the web bundle, applies OpenTofu, migrates Neon,
+deploys the Workers, checks bindings and the final plan, then runs the smoke test and `probe`.
+
+Do not deploy from a laptop as the normal path. `task deploy:dev` refuses unless `CI` is set or
+`ALLOW_LOCAL_DEPLOY=1` is exported for a break-glass deploy. CI reads credentials from repository
+secrets; see [Deploy](docs/DEPLOY.md#repository-secrets).
 
 Regenerate Better Auth tables after changing plugins:
 

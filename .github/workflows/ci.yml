@@ -54,3 +54,35 @@ jobs:
       - run: tofu fmt -check -recursive infra
       - run: tofu -chdir=infra/envs/dev init -backend=false -input=false
       - run: tofu -chdir=infra/envs/dev validate
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, infra]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.13.2"
+      - run: bun install --frozen-lockfile
+      - run: bun run scripts/deploy-dev.ts
+        env:
+          TF_VAR_account_id: ${{ secrets.TF_VAR_ACCOUNT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.TF_VAR_CLOUDFLARE_API_TOKEN }}
+          TF_VAR_neon_org_id: ${{ secrets.TF_VAR_NEON_ORG_ID }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          WORKERBEE_HOSTNAME: ${{ secrets.WORKERBEE_HOSTNAME }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}

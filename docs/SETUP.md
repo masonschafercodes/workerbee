@@ -17,6 +17,10 @@ code rather than configuration.
 | Dev hostname | `WORKERBEE_HOSTNAME` in `infra/envs/dev/deploy.env` | no | A bare hostname in a Cloudflare zone on the account |
 | Smoke URL | `WORKERBEE_URL` for `task smoke:dev` | no | Defaults to `https://$WORKERBEE_HOSTNAME` |
 
+The local file is for break-glass deploys. The normal deploy reads the same values from repository
+secrets, listed in [Deploy](DEPLOY.md#repository-secrets). Keep `BETTER_AUTH_SECRET` equal in both
+places, or local smoke runs create a different fixture.
+
 `NEON_API_KEY` is read by the Neon provider directly. It is never a Terraform
 variable, so it never enters state. The Neon role password does enter state, and
 so does the same password inside Hyperdrive. Protect the state bucket.
@@ -46,7 +50,7 @@ Set the PostHog project token in `.env.dev`. `task build` bakes it into the web 
 
 The web app captures pageviews, exceptions, and identified users, and feature flags load in the browser through `useFeatureFlag`. Identifying a user sends their email and name to PostHog. The API and hub capture unhandled errors and send structured logs to PostHog Logs. Local runs and tests stay silent while the key is empty.
 
-With `POSTHOG_API_KEY` and `POSTHOG_PROJECT_ID` set, `task build` injects a chunk id into each web bundle and uploads hidden source maps to PostHog. Without them the build skips both steps, so CI needs no PostHog account. Worker bundles do not upload source maps yet.
+With `POSTHOG_API_KEY` and `POSTHOG_PROJECT_ID` set, `task build` injects a chunk id into each web bundle and uploads hidden source maps to PostHog. Without them the build skips both steps. The deploy workflow passes these values from repository secrets, so add them there to keep source maps working. Worker bundles do not upload source maps yet.
 
 ## One-time bootstrap
 
@@ -64,7 +68,7 @@ First, fill `TF_VAR_account_id` and `TF_VAR_cloudflare_api_token`. Then create t
 task infra:bootstrap
 ```
 
-Create one R2 API token in the Cloudflare dashboard. Scope it to the `workerbee-tofu-state` bucket with Object Read and Write. Copy its Access Key ID and Secret Access Key into `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `deploy.env`. Cloudflare shows the secret only once. This is a one-time dashboard step. The routine deploy task reuses these credentials from the file.
+Create one R2 API token in the Cloudflare dashboard. Scope it to the `workerbee-tofu-state` bucket with Object Read and Write. Copy its Access Key ID and Secret Access Key into `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `deploy.env`. Cloudflare shows the secret only once. This is a one-time dashboard step.
 
 Fill `TF_VAR_neon_org_id` and `NEON_API_KEY` in the same file. Then run:
 
@@ -109,8 +113,9 @@ Run `task --list` for everything. Common tasks include `task check`,
 `task test:e2e`, `task db:migrate`, `task db:generate`, `task db:studio`,
 `task db:reset`, `task design`, `task build`, `task infra:validate`,
 `task infra:plan`, `task infra:apply`, `task infra:bindings`,
-`task wrangler:dry-run`, `task deploy:dev`, `task smoke:dev`, and `task ops -- probe` for a
-signed-out health check of the deployed stack. `task ops -- --help` lists the ops subcommands.
+`task wrangler:dry-run`, `task smoke:dev`, and `task ops -- probe` for a signed-out health check of
+the deployed stack. Deploys run in CI on merge to `main`; `ALLOW_LOCAL_DEPLOY=1 task deploy:dev` is
+the break-glass path. `task ops -- --help` lists the ops subcommands.
 
 If you use podman, set `CONTAINER_CMD` in `.env.dev`, for example
 `CONTAINER_CMD="podman compose"`. Without Task, the commands are in
