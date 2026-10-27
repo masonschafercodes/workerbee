@@ -1,5 +1,6 @@
 import type { ActorKind, Priority, StateCategory } from "@workerbee/domain"
 import type { ChangeOp, EntityName } from "@workerbee/sync"
+import { sql } from "drizzle-orm"
 import {
   bigint,
   foreignKey,
@@ -191,6 +192,14 @@ export const label = pgTable(
     index("label_workspace_idx").on(table.workspaceId),
     index("label_team_idx").on(table.teamId),
     unique("label_workspace_id_unique").on(table.workspaceId, table.id),
+    // A name is unique within its scope, case-insensitively. Two partial
+    // indexes cover the null team, which MATCH SIMPLE would otherwise skip.
+    uniqueIndex("label_workspace_name_unique")
+      .on(table.workspaceId, sql`lower(${table.name})`)
+      .where(sql`${table.teamId} is null`),
+    uniqueIndex("label_team_name_unique")
+      .on(table.workspaceId, table.teamId, sql`lower(${table.name})`)
+      .where(sql`${table.teamId} is not null`),
     // A null team means a workspace-level label, and MATCH SIMPLE skips the check.
     foreignKey({
       name: "label_team_fk",

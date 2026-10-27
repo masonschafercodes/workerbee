@@ -1,4 +1,4 @@
-import { Inbox, LogOut } from "lucide-react"
+import { Inbox, LogOut, Tag } from "lucide-react"
 import {
   Avatar,
   Badge,
@@ -14,6 +14,8 @@ export type SidebarProps = {
   readonly teams: readonly Team[]
   readonly teamCounts: Readonly<Record<string, number>>
   readonly activeTeamId: string | undefined
+  readonly settingsActive: boolean
+  readonly onOpenSettings: () => void
   readonly userName: string
   readonly userEmail: string
   readonly onWorkspaceChange: (slug: string) => void
@@ -27,6 +29,8 @@ export function Sidebar({
   teams,
   teamCounts,
   activeTeamId,
+  settingsActive,
+  onOpenSettings,
   userName,
   userEmail,
   onWorkspaceChange,
@@ -65,7 +69,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={() => onSelectTeam(undefined)}
-          aria-current={activeTeamId === undefined ? "page" : undefined}
+          aria-current={!settingsActive && activeTeamId === undefined ? "page" : undefined}
           className="focus-ring flex h-7 items-center gap-2 rounded-xs px-2 text-sm text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-[current=page]:bg-raised aria-[current=page]:text-fg"
         >
           <Inbox className="size-3.5" aria-hidden="true" />
@@ -83,7 +87,7 @@ export function Sidebar({
               key={team.id}
               type="button"
               onClick={() => onSelectTeam(team.id)}
-              aria-current={activeTeamId === team.id ? "page" : undefined}
+              aria-current={!settingsActive && activeTeamId === team.id ? "page" : undefined}
               className="focus-ring flex h-7 items-center gap-2 rounded-xs px-2 text-sm text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-[current=page]:bg-raised aria-[current=page]:text-fg"
             >
               <span className="font-mono text-2xs text-fg-subtle">{team.key}</span>
@@ -94,7 +98,19 @@ export function Sidebar({
         </nav>
       </div>
 
-      <div className="mt-auto flex items-center gap-2 border-t border-line p-2">
+      <div className="mt-auto grid gap-0.5 px-2 pb-2">
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          aria-current={settingsActive ? "page" : undefined}
+          className="focus-ring flex h-7 items-center gap-2 rounded-xs px-2 text-sm text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-[current=page]:bg-raised aria-[current=page]:text-fg"
+        >
+          <Tag className="size-3.5" aria-hidden="true" />
+          Labels
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 border-t border-line p-2">
         <Avatar name={userName} size="sm" />
         <div className="grid min-w-0 flex-1">
           <span className="truncate text-xs font-medium text-fg">{userName}</span>

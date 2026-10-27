@@ -1,6 +1,13 @@
 import { Bot, Hash, Inbox, Layers, UserRound } from "lucide-react"
 import { Block, Page, Panel } from "../ui"
-import { Avatar, Badge, Kbd, Separator, Skeleton } from "@workerbee/ui"
+import { Avatar, Badge, Kbd, LabelChip, Separator, Skeleton } from "@workerbee/ui"
+
+const LABEL_EXAMPLES = [
+  { name: "bug", color: "#d73a4a", scope: "workspace" as const },
+  { name: "design", color: "#8250df", scope: "team" as const },
+  { name: "needs reproduction", color: "#bf8700", scope: "workspace" as const },
+  { name: "a label name that is long enough to truncate", color: "#0969da", scope: "team" as const },
+]
 
 export function Display() {
   return (
@@ -20,6 +27,19 @@ export function Display() {
             <Badge variant="danger">Blocked</Badge>
             <Badge variant="outline">Triage</Badge>
             <Badge variant="neutral" size="md">Cycle 14</Badge>
+          </div>
+        </Panel>
+      </Block>
+
+      <Block
+        title="Label chips"
+        hint="The fill is the label's own color. Circle means workspace scope, square means team scope, and the name always carries the meaning."
+      >
+        <Panel>
+          <div className="flex flex-wrap items-center gap-2">
+            {LABEL_EXAMPLES.map((label) => (
+              <LabelChip key={label.name} {...label} />
+            ))}
           </div>
         </Panel>
       </Block>

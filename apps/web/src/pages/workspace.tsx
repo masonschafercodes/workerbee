@@ -34,6 +34,7 @@ export function WorkspacePage() {
   }, [bootstrap.data?.issues])
 
   const selectedIdentifier = pathname.match(/\/issues\/([^/]+)$/)?.[1]
+  const settingsActive = pathname.endsWith("/settings/labels")
   const userId = session.data?.user.id
   const userEmail = session.data?.user.email
   const userName = session.data?.user.name
@@ -98,6 +99,14 @@ export function WorkspacePage() {
           })
         }}
         onSelectTeam={(teamId) => go({ team: teamId })}
+        settingsActive={settingsActive}
+        onOpenSettings={() => {
+          void navigate({
+            to: "/w/$workspace/settings/labels",
+            params: { workspace: slug },
+            search,
+          })
+        }}
         onSignOut={() => void signOut()}
       />
 
@@ -110,22 +119,24 @@ export function WorkspacePage() {
         />
 
         <div className="flex min-h-0 flex-1">
-          <div className="min-w-0 flex-1 overflow-y-auto">
-            <IssueList
-              bootstrap={data}
-              search={search}
-              selectedIdentifier={selectedIdentifier}
-              onSelect={(identifier) => {
-                void navigate({
-                  to: "/w/$workspace/issues/$identifier",
-                  params: { workspace: slug, identifier },
-                  search,
-                })
-              }}
-              onCreate={() => setCreateOpen(true)}
-              onViewChange={(view) => go({ view })}
-            />
-          </div>
+          {settingsActive ? null : (
+            <div className="min-w-0 flex-1 overflow-y-auto">
+              <IssueList
+                bootstrap={data}
+                search={search}
+                selectedIdentifier={selectedIdentifier}
+                onSelect={(identifier) => {
+                  void navigate({
+                    to: "/w/$workspace/issues/$identifier",
+                    params: { workspace: slug, identifier },
+                    search,
+                  })
+                }}
+                onCreate={() => setCreateOpen(true)}
+                onViewChange={(view) => go({ view })}
+              />
+            </div>
+          )}
 
           <Outlet />
         </div>

@@ -78,6 +78,9 @@ and 10px. Motion uses 100ms for color, 140ms for menus, and 200ms for panels, al
 - **Tabs**: underline for views of the same list, segmented for a mode switch.
 - **Issue row**: one button, 36px, no nested controls. Status and priority are icons plus a
   screen-reader label. Metadata truncates before the title.
+- **Label chip**: the name is the signal, so color is never alone. A circle marker means a
+  workspace label, a square marker means a team label. The marker fill is the label's own color;
+  the chip border and text use semantic tokens.
 - **Empty state**: name the state, say what to do next, offer one action. No illustrations.
 
 ## Accessibility

@@ -36,6 +36,12 @@ A named stage in a team's process, with a category of backlog, unstarted, starte
 canceled.
 _Avoid_: Status, column
 
+**Label**:
+A short name and color used to group issues. A workspace label applies to every team; a team
+label applies only to its own team's issues. The label is the definition. Attaching it writes an
+`issue_label` row and an issue change that carries the new label list.
+_Avoid_: Tag, category
+
 **Changeset**:
 The set of changes one write transaction produced. Clients apply a changeset as a unit or not at
 all.

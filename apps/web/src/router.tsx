@@ -12,6 +12,7 @@ import { keys } from "./lib/hooks"
 import { queryClient } from "./lib/query"
 import { validateWorkspaceSearch } from "./lib/search"
 import { IssuePage } from "./pages/issue"
+import { SettingsLabelsPage } from "./pages/settings-labels"
 import { NewWorkspacePage } from "./pages/new-workspace"
 import { SignInPage } from "./pages/sign-in"
 import { SignUpPage } from "./pages/sign-up"
@@ -123,12 +124,19 @@ const issueRoute = createRoute({
   component: IssuePage,
 })
 
+const settingsLabelsRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "settings/labels",
+  beforeLoad: requireSession,
+  component: SettingsLabelsPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   signInRoute,
   signUpRoute,
   newWorkspaceRoute,
-  workspaceRoute.addChildren([issueRoute]),
+  workspaceRoute.addChildren([issueRoute, settingsLabelsRoute]),
 ])
 
 export const router = createRouter({

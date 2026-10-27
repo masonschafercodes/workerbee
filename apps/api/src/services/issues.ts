@@ -18,7 +18,13 @@ export function createIssue(
 }
 
 export function issueDetail(tenant: TenantDb, id: string) {
-  return tenant.issueById(id)
+  return tenant.issueById(id).then(async (issue) => {
+    if (issue === null) {
+      return null
+    }
+
+    return { ...issue, labels: await tenant.labelsForIssue(id) }
+  })
 }
 
 export type IssuePatchInput = {
