@@ -109,7 +109,8 @@ Run `task --list` for everything. Common tasks include `task check`,
 `task test:e2e`, `task db:migrate`, `task db:generate`, `task db:studio`,
 `task db:reset`, `task design`, `task build`, `task infra:validate`,
 `task infra:plan`, `task infra:apply`, `task infra:bindings`,
-`task wrangler:dry-run`, `task deploy:dev`, and `task smoke:dev`.
+`task wrangler:dry-run`, `task deploy:dev`, `task smoke:dev`, and `task ops -- probe` for a
+signed-out health check of the deployed stack. `task ops -- --help` lists the ops subcommands.
 
 If you use podman, set `CONTAINER_CMD` in `.env.dev`, for example
 `CONTAINER_CMD="podman compose"`. Without Task, the commands are in
