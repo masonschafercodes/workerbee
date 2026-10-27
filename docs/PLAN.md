@@ -291,10 +291,11 @@ infra/
 ```
 
 State lives in R2 with `use_lockfile = true` (native conditional-write locking). Environments
-are `dev` and `prod` from the same modules. CI validates OpenTofu without account credentials and
-runs Wrangler dry-runs. Operators run `task infra:plan` against remote state before applying.
-`task deploy:dev` checks that the final state-backed plan is empty. Do not put provider or state
-credentials in CI.
+are `dev` and `prod` from the same modules. Pull requests validate OpenTofu without account
+credentials and run Wrangler dry-runs. Merging to `main` runs `scripts/deploy-dev.ts` in CI with
+provider and state credentials from repository secrets. The script checks that the final
+state-backed plan is empty. Never commit those credentials; `deploy.env` is only for break-glass
+local runs.
 
 **Application secrets stay out of tofu state.** API keys, webhook HMAC secrets, and session keys go
 through `wrangler secret bulk` from the deploy environment or a password manager. The one exception is the Hyperdrive

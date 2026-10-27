@@ -1,48 +1,54 @@
 # Deploy the dev environment
 
-Use this guide after [bootstrapping OpenTofu state](SETUP.md#one-time-bootstrap). The deploy task creates the dev infrastructure, deploys the Workers, and attaches the hostname. It then runs a live-update smoke test.
+Deploys run in GitHub Actions when a pull request merges to `main`. The deploy job waits for the check and infra jobs, then runs `scripts/deploy-dev.ts`. That script builds the web bundle, applies the dev infrastructure, migrates Neon, deploys the Workers, checks the committed bindings and the final plan, and finishes with the live-update smoke test and `ops probe`.
 
-## Prepare credentials
+Do not deploy from a laptop as the normal path. The same script runs locally only when you set `ALLOW_LOCAL_DEPLOY=1` for a break-glass deploy. Local runs read `infra/envs/dev/deploy.env`; CI reads repository secrets.
 
 Use a Workers Paid account. Password hashing and the API bundle exceed the Workers Free plan's 10 ms CPU budget, so sign-in fails intermittently with error 1102. The Paid plan also allows an explicit CPU limit.
 
 Run `task setup` to create `.env.dev` and a Better Auth secret. Keep Cloudflare and Neon credentials out of `.env.dev`.
 
-Set `WORKERBEE_HOSTNAME` to a bare hostname, such as `issues.example.com`, with no scheme, port, or path. Copy the deploy credential template and fill it once:
+Set `WORKERBEE_HOSTNAME` to a bare hostname, such as `issues.example.com`, with no scheme, port, or path.
 
-```sh
-cp infra/envs/dev/deploy.env.example infra/envs/dev/deploy.env
-nano infra/envs/dev/deploy.env
-chmod 600 infra/envs/dev/deploy.env
-```
+## Repository secrets
 
-The Taskfile loads this ignored file for infrastructure and deployment tasks. It stores the Cloudflare account id and token, the Neon organization id and API key, the R2 state credentials, and `WORKERBEE_HOSTNAME`. Keep the file private and never commit it.
+Add these in the repository settings under Actions secrets. The workflow maps each secret to the environment name in parentheses.
 
-The task generates `infra/envs/dev/backend.hcl` from the account id. You only need to edit `deploy.env` again when a credential or hostname changes.
+| Secret | Environment name | Notes |
+| --- | --- | --- |
+| `TF_VAR_ACCOUNT_ID` | `TF_VAR_account_id` | Cloudflare account id |
+| `TF_VAR_CLOUDFLARE_API_TOKEN` | `TF_VAR_cloudflare_api_token` | Cloudflare API token |
+| `TF_VAR_NEON_ORG_ID` | `TF_VAR_neon_org_id` | Neon organization id |
+| `NEON_API_KEY` | `NEON_API_KEY` | Neon API key |
+| `AWS_ACCESS_KEY_ID` | `AWS_ACCESS_KEY_ID` | R2 state bucket access key |
+| `AWS_SECRET_ACCESS_KEY` | `AWS_SECRET_ACCESS_KEY` | R2 state bucket secret |
+| `WORKERBEE_HOSTNAME` | `WORKERBEE_HOSTNAME` | Dev hostname |
+| `BETTER_AUTH_SECRET` | `BETTER_AUTH_SECRET` | Must equal the value in your local `.env.dev` |
+| `POSTHOG_KEY` | `POSTHOG_KEY` | Optional project token |
+| `POSTHOG_HOST` | `POSTHOG_HOST` | Optional PostHog host |
+| `POSTHOG_API_KEY` | `POSTHOG_API_KEY` | Optional source map upload key |
+| `POSTHOG_PROJECT_ID` | `POSTHOG_PROJECT_ID` | Optional source map project id |
+
+The script generates `infra/envs/dev/backend.hcl` from the account id. You only need to change a secret when a credential or hostname changes.
 
 ## Deploy and smoke test
 
-Run the deploy task:
+Merging to `main` starts the deploy job. The script auto-approves its two OpenTofu applies so it can run non-interactively. The standalone `task infra:apply` remains interactive.
 
-```sh
-task deploy:dev
-```
+If you change a hostname, the script keeps the old API origin until OpenTofu attaches the new domain, then redeploys the API with the new origin. If a deploy step fails, rerun the deploy job in Actions, or set `ALLOW_LOCAL_DEPLOY=1` and run `task deploy:dev` to converge from the state that OpenTofu already recorded.
 
-`task deploy:dev` auto-approves its two OpenTofu applies so it can run non-interactively. The standalone `task infra:apply` remains interactive.
-
-The task applies the base infrastructure, renders Wrangler configs from OpenTofu outputs, migrates Neon, and deploys the hub, API, and web Workers. It then creates the Cloudflare custom domain through OpenTofu. The task verifies live updates at `https://$WORKERBEE_HOSTNAME`. If you change a hostname, the task keeps the old API origin until OpenTofu attaches the new domain. It then redeploys the API with the new origin. If a deploy step fails, rerun `task deploy:dev` to converge from the state that OpenTofu already recorded.
-
-The task writes `infra/generated/bindings.dev.jsonc`, compares it with OpenTofu outputs, and runs `tofu plan -detailed-exitcode`. The deploy fails if the plan shows changes. Review and commit the binding file with the deployment change. Rerun the checks with:
+The script writes `infra/generated/bindings.dev.jsonc`, compares it with OpenTofu outputs, and runs `tofu plan -detailed-exitcode`. The deploy fails if the plan shows changes. Review and commit the binding file with the deployment change. Rerun the checks with:
 
 ```sh
 task infra:bindings:check
 task infra:plan
 ```
 
-To run the smoke test again, use:
+To run the smoke test again against the deployed stack, use:
 
 ```sh
 task smoke:dev
+task ops -- probe
 ```
 
 The smoke test uses a stable account and workspace for the hostname and Better Auth secret. It creates one issue on its first run. Later runs change that issue's state from a second authenticated WebSocket client. Rotating the auth secret creates a new fixture instead of reusing an invalid password.
