@@ -55,6 +55,7 @@ and bootstrap order are in [Setup](docs/SETUP.md).
 | Check | `task check` |
 | Tests | `task test` |
 | E2E only | `task test:e2e` |
+| Ops CLI | `task ops -- <command>` |
 | Typecheck only | `bun run typecheck` |
 | API only | `bun run --cwd apps/api dev` |
 | Web only | `bun run --cwd apps/web dev` |
@@ -73,6 +74,26 @@ and bootstrap order are in [Setup](docs/SETUP.md).
 
 `task setup` creates `workerbee_test`. The suites truncate every table in whatever
 `TEST_DATABASE_URL` points at, so do not point it at a database with data you care about.
+
+### Ops CLI
+
+Probe the stack through `scripts/ops.ts`, not ad-hoc shell. It loads `.env.dev` and
+`infra/envs/dev/deploy.env` itself, signs in with a deterministic ops actor, and turns the answer
+into an exit code.
+
+```sh
+task ops -- probe                       # deployed protocol, index, bundle, source maps
+task ops -- api GET /api/v1/protocol    # signed-in request, prints status and JSON
+task ops -- db query "select count(*) from issue"
+task ops -- db query --remote "select now()"
+```
+
+`api` and `probe` default to the deployed dev origin. Pass `--url http://localhost:5173` to target
+a running local stack. The first `api` call against an origin creates a deterministic ops account
+and workspace there. `db` defaults to the local database, accepts `--database test`, and requires
+`--write` for anything that is not a read. `task deploy:dev` ends with `probe`, so a deploy fails
+when the served bundle is wrong. Do not source env files in a shell or assemble `curl` requests
+when a subcommand exists. Add a subcommand when the need recurs.
 
 Regenerate Better Auth tables after changing plugins:
 
