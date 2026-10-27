@@ -19,5 +19,8 @@
     "typescript": "^7.0.2",
     "wrangler": "^4.152.0",
     "zod": "^4.6.7"
-  }
+  },
+  "trustedDependencies": [
+    "@posthog/cli"
+  ]
 }

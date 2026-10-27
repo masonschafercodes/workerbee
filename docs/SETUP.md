@@ -41,8 +41,12 @@ Set the PostHog project token in `.env.dev`. `task build` bakes it into the web 
 | --- | --- | --- |
 | `POSTHOG_KEY` | Web build, API, hub | Project token, starts with `phc_`. Publishable, but kept out of git |
 | `POSTHOG_HOST` | Web build, API, hub | `https://us.i.posthog.com` or `https://eu.i.posthog.com` |
+| `POSTHOG_API_KEY` | Web build | Personal API key with error tracking write and organization read scopes. Only used to upload source maps |
+| `POSTHOG_PROJECT_ID` | Web build | Numeric project id. Only used to upload source maps |
 
 The web app captures pageviews, exceptions, and identified users, and feature flags load in the browser through `useFeatureFlag`. Identifying a user sends their email and name to PostHog. The API and hub capture unhandled errors and send structured logs to PostHog Logs. Local runs and tests stay silent while the key is empty.
+
+With `POSTHOG_API_KEY` and `POSTHOG_PROJECT_ID` set, `task build` injects a chunk id into each web bundle and uploads hidden source maps to PostHog. Without them the build skips both steps, so CI needs no PostHog account. Worker bundles do not upload source maps yet.
 
 ## One-time bootstrap
 
