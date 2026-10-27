@@ -72,6 +72,7 @@ export const newTeamId = (): TeamId => newId() as TeamId
 export const newIssueId = (): IssueId => newId() as IssueId
 export const newCommentId = (): CommentId => newId() as CommentId
 export const newStateId = (): StateId => newId() as StateId
+export const newLabelId = (): LabelId => newId() as LabelId
 
 export const workspaceId = (value: string): WorkspaceId => parse(value, "workspace id")
 export const actorId = (value: string): ActorId => parse(value, "actor id")
@@ -79,3 +80,4 @@ export const teamId = (value: string): TeamId => parse(value, "team id")
 export const issueId = (value: string): IssueId => parse(value, "issue id")
 export const commentId = (value: string): CommentId => parse(value, "comment id")
 export const stateId = (value: string): StateId => parse(value, "state id")
+export const labelId = (value: string): LabelId => parse(value, "label id")

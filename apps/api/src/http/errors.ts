@@ -1,4 +1,5 @@
 import { ConflictError, NotFoundError } from "@workerbee/db"
+import { InvalidLabelError } from "@workerbee/domain"
 import type { Telemetry } from "@workerbee/telemetry"
 import type { Context } from "hono"
 import { WorkspaceExistsError } from "../services/workspaces"
@@ -6,6 +7,10 @@ import { WorkspaceExistsError } from "../services/workspaces"
 export function handleError(error: Error, c: Context, telemetry: Telemetry) {
   if (error instanceof NotFoundError) {
     return c.json({ error: "not_found" }, 404)
+  }
+
+  if (error instanceof InvalidLabelError) {
+    return c.json({ error: "invalid_label" }, 400)
   }
 
   if (error instanceof WorkspaceExistsError) {

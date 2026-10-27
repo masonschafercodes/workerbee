@@ -62,6 +62,12 @@ async function seed(db: Database, slug: string, teamKeyText: string): Promise<Se
   })
 
   const comment = await tenant.addComment(created.issue.id, "hello", ids.actorId)
+  const createdLabel = await tenant.createLabel({
+    teamId: ids.teamId,
+    name: "bug",
+    color: "#d73a4a",
+    actorId: ids.actorId,
+  })
 
   return {
     tenant,
@@ -69,6 +75,7 @@ async function seed(db: Database, slug: string, teamKeyText: string): Promise<Se
       ...ids,
       issueId: created.issue.id,
       commentId: comment.comment.id,
+      labelId: createdLabel.label.id,
     },
   }
 }
@@ -146,6 +153,7 @@ describeDb("tenant isolation", () => {
         foreign.stateId,
         foreign.issueId,
         foreign.commentId,
+        foreign.labelId,
       ]
 
       expect(foreignIds.filter((id) => returned.includes(id))).toEqual([])

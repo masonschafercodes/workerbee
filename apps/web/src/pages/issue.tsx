@@ -1,18 +1,31 @@
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Check } from "lucide-react"
 import { useState } from "react"
 import {
   Avatar,
   Badge,
   Button,
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   IconButton,
+  LabelChip,
   Select,
   Skeleton,
   Textarea,
   Tooltip,
 } from "@workerbee/ui"
 import { relativeTime } from "../lib/format"
-import { useAddComment, useBootstrap, useComments, useIssue, useUpdateIssue } from "../lib/hooks"
+import {
+  useAddComment,
+  useAttachLabel,
+  useBootstrap,
+  useComments,
+  useDetachLabel,
+  useIssue,
+  useUpdateIssue,
+} from "../lib/hooks"
 import type { WorkspaceSearch } from "../lib/search"
 import type { Priority } from "../lib/types"
 
@@ -37,6 +50,8 @@ export function IssuePage() {
   const comments = useComments(workspace, summary?.id ?? "")
   const update = useUpdateIssue(workspace, summary?.id ?? "")
   const addComment = useAddComment(workspace, summary?.id ?? "")
+  const attach = useAttachLabel(workspace, summary?.id ?? "")
+  const detach = useDetachLabel(workspace, summary?.id ?? "")
   const [comment, setComment] = useState("")
 
   function close() {
@@ -74,6 +89,13 @@ export function IssuePage() {
     .filter((item) => item.teamId === summary.teamId)
     .sort((a, b) => a.position - b.position)
 
+  const availableLabels = (bootstrap.data?.labels ?? []).filter(
+    (label) => label.teamId === null || label.teamId === summary.teamId,
+  )
+  const attachedLabels = issue.data?.labels ?? []
+  const attachedIds = new Set(attachedLabels.map((label) => label.id))
+  const labelPending = attach.isPending || detach.isPending
+
   return (
     <aside
       aria-label="Issue details"
@@ -98,6 +120,84 @@ export function IssuePage() {
             Updated {relativeTime(issue.data?.updatedAt ?? summary.updatedAt)}
           </p>
         </div>
+
+        <section className="grid gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-fg-subtle">
+              Labels
+            </h3>
+            <DropdownMenu
+              trigger={
+                <Button size="sm" variant="ghost" disabled={issue.data === undefined || labelPending}>
+                  Add label
+                </Button>
+              }
+            >
+              <DropdownMenuLabel>Labels</DropdownMenuLabel>
+              {availableLabels.length === 0 ? (
+                <DropdownMenuItem disabled>No labels in this workspace</DropdownMenuItem>
+              ) : (
+                availableLabels.map((label) => {
+                  const attached = attachedIds.has(label.id)
+
+                  return (
+                    <DropdownMenuItem
+                      key={label.id}
+                      onSelect={() => {
+                        if (attached) {
+                          detach.mutate(label.id)
+                        } else {
+                          attach.mutate(label.id)
+                        }
+                      }}
+                    >
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
+                        <LabelChip
+                          name={label.name}
+                          color={label.color}
+                          scope={label.teamId === null ? "workspace" : "team"}
+                        />
+                      </span>
+                      {attached ? <Check className="size-3.5 text-accent" aria-hidden="true" /> : null}
+                    </DropdownMenuItem>
+                  )
+                })
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  void navigate({
+                    to: "/w/$workspace/settings/labels",
+                    params: { workspace },
+                    search,
+                  })
+                }}
+              >
+                Manage labels
+              </DropdownMenuItem>
+            </DropdownMenu>
+          </div>
+
+          {attachedLabels.length === 0 ? (
+            <p className="text-xs text-fg-subtle">No labels.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {attachedLabels.map((label) => (
+                <LabelChip
+                  key={label.id}
+                  name={label.name}
+                  color={label.color}
+                  scope={label.teamId === null ? "workspace" : "team"}
+                />
+              ))}
+            </div>
+          )}
+          {attach.error !== null || detach.error !== null ? (
+            <p role="alert" className="text-xs text-danger">
+              {(attach.error ?? detach.error)?.message}
+            </p>
+          ) : null}
+        </section>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-1.5">

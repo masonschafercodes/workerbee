@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "./api"
-import type { CreateIssueBody, Issue, UpdateIssueBody } from "./types"
+import type {
+  CreateIssueBody,
+  CreateLabelBody,
+  Issue,
+  UpdateIssueBody,
+  UpdateLabelBody,
+} from "./types"
 
 export const keys = {
   workspaces: ["workspaces"] as const,
@@ -93,6 +99,66 @@ export function useAddComment(slug: string, id: string) {
     mutationFn: (body: string) => api.addComment(slug, id, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.comments(slug, id) })
+      void queryClient.invalidateQueries({ queryKey: keys.bootstrap(slug) })
+    },
+  })
+}
+
+export function useCreateLabel(slug: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: CreateLabelBody) => api.createLabel(slug, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.bootstrap(slug) })
+    },
+  })
+}
+
+export function useUpdateLabel(slug: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, body }: { readonly id: string; readonly body: UpdateLabelBody }) =>
+      api.updateLabel(slug, id, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.bootstrap(slug) })
+      void queryClient.invalidateQueries({ queryKey: ["issue", slug] })
+    },
+  })
+}
+
+export function useDeleteLabel(slug: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => api.deleteLabel(slug, id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.bootstrap(slug) })
+      void queryClient.invalidateQueries({ queryKey: ["issue", slug] })
+    },
+  })
+}
+
+export function useAttachLabel(slug: string, issueId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (labelId: string) => api.attachLabel(slug, issueId, labelId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.issue(slug, issueId) })
+      void queryClient.invalidateQueries({ queryKey: keys.bootstrap(slug) })
+    },
+  })
+}
+
+export function useDetachLabel(slug: string, issueId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (labelId: string) => api.detachLabel(slug, issueId, labelId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.issue(slug, issueId) })
       void queryClient.invalidateQueries({ queryKey: keys.bootstrap(slug) })
     },
   })

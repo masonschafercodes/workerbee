@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "label_workspace_name_unique" ON "label" USING btree ("workspace_id",lower("name")) WHERE "label"."team_id" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "label_team_name_unique" ON "label" USING btree ("workspace_id","team_id",lower("name")) WHERE "label"."team_id" is not null;

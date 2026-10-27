@@ -6,6 +6,7 @@ import {
   gt,
   inArray,
   isNull,
+  or,
   sql,
 } from "drizzle-orm"
 import {
@@ -13,9 +14,14 @@ import {
   PRIORITIES,
   STATE_CATEGORIES,
   formatIdentifier,
+  labelAppliesToTeam,
+  labelColor,
+  labelName,
+  labelScope,
   newId,
   teamKey,
   workspaceId as toWorkspaceId,
+  InvalidLabelError,
   type ActorId,
   type Priority,
   type StateCategory,
@@ -23,7 +29,7 @@ import {
   type WorkspaceId,
   type WorkspaceRole,
 } from "@workerbee/domain"
-import type { Change, Changeset } from "@workerbee/sync"
+import { MAX_PATCH_BYTES, type Change, type Changeset } from "@workerbee/sync"
 import { z } from "zod"
 import type { Database } from "./client"
 import * as schema from "./schema"
@@ -36,8 +42,8 @@ export class NotFoundError extends Error {
 }
 
 export class ConflictError extends Error {
-  constructor(what: string) {
-    super(`${what} changed since it was read`)
+  constructor(what: string, message = `${what} changed since it was read`) {
+    super(message)
     this.name = "ConflictError"
   }
 }
@@ -66,6 +72,18 @@ export type IssuePatch = {
   readonly stateId?: string
   readonly priority?: Priority
   readonly assigneeId?: ActorId | null
+}
+
+export type CreateLabelInput = {
+  readonly teamId: TeamId | null
+  readonly name: string
+  readonly color: string
+  readonly actorId: ActorId
+}
+
+export type LabelPatch = {
+  readonly name?: string
+  readonly color?: string
 }
 
 export type BootstrapSnapshot = Awaited<ReturnType<TenantDb["bootstrap"]>>
@@ -115,6 +133,15 @@ const bootstrapSchema = z.object({
       version: z.number().int(),
     }),
   ),
+  labels: z.array(
+    z.object({
+      id: z.string(),
+      teamId: z.string().nullable(),
+      name: z.string(),
+      color: z.string(),
+      createdAt: z.string(),
+    }),
+  ),
 })
 
 const issueSummaryFields = {
@@ -129,6 +156,54 @@ const issueSummaryFields = {
   parentId: schema.issue.parentId,
   updatedAt: schema.issue.updatedAt,
   version: schema.issue.version,
+}
+
+const labelFields = {
+  id: schema.label.id,
+  teamId: schema.label.teamId,
+  name: schema.label.name,
+  color: schema.label.color,
+  createdAt: schema.label.createdAt,
+}
+
+function labelChangeFields(row: {
+  readonly id: string
+  readonly teamId: string | null
+  readonly name: string
+  readonly color: string
+  readonly createdAt: Date
+}): Record<string, unknown> {
+  return {
+    id: row.id,
+    teamId: row.teamId,
+    name: row.name,
+    color: row.color,
+    createdAt: row.createdAt.toISOString(),
+  }
+}
+
+function isUniqueLabelNameViolation(error: unknown): boolean {
+  // Drizzle wraps the driver error, so the Postgres code sits on the cause.
+  let current: unknown = error
+
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (typeof current !== "object" || current === null) {
+      return false
+    }
+
+    if (Reflect.get(current, "code") === "23505") {
+      const constraint = Reflect.get(current, "constraint")
+
+      return (
+        constraint === "label_workspace_name_unique" ||
+        constraint === "label_team_name_unique"
+      )
+    }
+
+    current = Reflect.get(current, "cause")
+  }
+
+  return false
 }
 
 function knownRole(value: string): WorkspaceRole | null {
@@ -260,6 +335,16 @@ export class TenantDb {
           )
           from issue i
           where i.workspace_id = ${this.workspaceId} and i.archived_at is null
+        ), '[]'::json),
+        'labels', coalesce((
+          select json_agg(
+            json_build_object(
+              'id', l.id, 'teamId', l.team_id, 'name', l.name,
+              'color', l.color, 'createdAt', l.created_at
+            ) order by l.team_id nulls first, lower(l.name)
+          )
+          from label l
+          where l.workspace_id = ${this.workspaceId}
         ), '[]'::json)
       ) as snapshot
     `)
@@ -283,6 +368,10 @@ export class TenantDb {
       issues: parsed.data.issues.map((issue) => ({
         ...issue,
         updatedAt: new Date(issue.updatedAt).toISOString(),
+      })),
+      labels: parsed.data.labels.map((label) => ({
+        ...label,
+        createdAt: new Date(label.createdAt).toISOString(),
       })),
     }
   }
@@ -335,6 +424,46 @@ export class TenantDb {
         ),
       )
       .orderBy(asc(schema.comment.createdAt))
+  }
+
+  async listLabels(teamId?: TeamId) {
+    const teamFilter =
+      teamId === undefined
+        ? undefined
+        : or(
+            isNull(schema.label.teamId),
+            eq(schema.label.teamId, teamId),
+          )
+
+    return this.db
+      .select(labelFields)
+      .from(schema.label)
+      .where(and(eq(schema.label.workspaceId, this.workspaceId), teamFilter))
+      .orderBy(sql`${schema.label.teamId} nulls first`, asc(schema.label.name))
+  }
+
+  async labelsForIssue(issueId: string) {
+    return this.issueLabels(this.db, issueId)
+  }
+
+  private issueLabels(db: Database | Transaction, issueId: string) {
+    return db
+      .select(labelFields)
+      .from(schema.issueLabel)
+      .innerJoin(
+        schema.label,
+        and(
+          eq(schema.label.workspaceId, schema.issueLabel.workspaceId),
+          eq(schema.label.id, schema.issueLabel.labelId),
+        ),
+      )
+      .where(
+        and(
+          eq(schema.issueLabel.workspaceId, this.workspaceId),
+          eq(schema.issueLabel.issueId, issueId),
+        ),
+      )
+      .orderBy(asc(schema.label.name))
   }
 
   async createIssue(input: CreateIssueInput) {
@@ -677,6 +806,336 @@ export class TenantDb {
 
       return { comment: created, seq }
     })
+  }
+
+  async createLabel(input: CreateLabelInput) {
+    const name = labelName(input.name)
+    const color = labelColor(input.color)
+
+    try {
+      return await this.db.transaction(async (tx) => {
+        if (input.teamId !== null) {
+          const [team] = await tx
+            .select({ id: schema.team.id })
+            .from(schema.team)
+            .where(
+              and(
+                eq(schema.team.workspaceId, this.workspaceId),
+                eq(schema.team.id, input.teamId),
+              ),
+            )
+            .limit(1)
+
+          if (team === undefined) {
+            throw new NotFoundError("team")
+          }
+        }
+
+        const [created] = await tx
+          .insert(schema.label)
+          .values({
+            id: newId(),
+            workspaceId: this.workspaceId,
+            teamId: input.teamId,
+            name,
+            color,
+          })
+          .returning()
+
+        if (created === undefined) {
+          throw new Error("failed to create the label")
+        }
+
+        const seq = await appendChangeset(tx, this.workspaceId, input.actorId, [
+          {
+            entity: "label",
+            id: created.id,
+            teamId: created.teamId,
+            op: "insert",
+            patch: labelChangeFields(created),
+          },
+        ])
+
+        return { label: created, seq }
+      })
+    } catch (error) {
+      if (isUniqueLabelNameViolation(error)) {
+        throw new ConflictError("label", "a label with this name already exists in this scope")
+      }
+
+      throw error
+    }
+  }
+
+  async updateLabel(id: string, patch: LabelPatch, actorId: ActorId) {
+    const name = patch.name === undefined ? undefined : labelName(patch.name)
+    const color = patch.color === undefined ? undefined : labelColor(patch.color)
+
+    try {
+      return await this.db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(schema.label)
+          .where(
+            and(eq(schema.label.workspaceId, this.workspaceId), eq(schema.label.id, id)),
+          )
+          .for("update")
+          .limit(1)
+
+        if (existing === undefined) {
+          throw new NotFoundError("label")
+        }
+
+        const changes: Record<string, unknown> = {}
+
+        if (name !== undefined && name !== existing.name) {
+          changes.name = name
+        }
+
+        if (color !== undefined && color !== existing.color) {
+          changes.color = color
+        }
+
+        if (Object.keys(changes).length === 0) {
+          return { label: existing, seq: null }
+        }
+
+        const [updated] = await tx
+          .update(schema.label)
+          .set(changes)
+          .where(
+            and(eq(schema.label.workspaceId, this.workspaceId), eq(schema.label.id, id)),
+          )
+          .returning()
+
+        if (updated === undefined) {
+          throw new NotFoundError("label")
+        }
+
+        const seq = await appendChangeset(tx, this.workspaceId, actorId, [
+          {
+            entity: "label",
+            id,
+            teamId: existing.teamId,
+            op: "update",
+            patch: changes,
+          },
+        ])
+
+        return { label: updated, seq }
+      })
+    } catch (error) {
+      if (isUniqueLabelNameViolation(error)) {
+        throw new ConflictError("label", "a label with this name already exists in this scope")
+      }
+
+      throw error
+    }
+  }
+
+  async deleteLabel(id: string, actorId: ActorId) {
+    return this.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(schema.label)
+        .where(and(eq(schema.label.workspaceId, this.workspaceId), eq(schema.label.id, id)))
+        .for("update")
+        .limit(1)
+
+      if (existing === undefined) {
+        throw new NotFoundError("label")
+      }
+
+      await tx
+        .delete(schema.label)
+        .where(and(eq(schema.label.workspaceId, this.workspaceId), eq(schema.label.id, id)))
+
+      const seq = await appendChangeset(tx, this.workspaceId, actorId, [
+        {
+          entity: "label",
+          id,
+          teamId: existing.teamId,
+          op: "delete",
+          patch: {},
+        },
+      ])
+
+      return { seq }
+    })
+  }
+
+  async attachLabel(issueId: string, labelId: string, actorId: ActorId) {
+    return this.db.transaction(async (tx) => {
+      const [issue] = await tx
+        .select()
+        .from(schema.issue)
+        .where(
+          and(
+            eq(schema.issue.workspaceId, this.workspaceId),
+            eq(schema.issue.id, issueId),
+          ),
+        )
+        .for("update")
+        .limit(1)
+
+      if (issue === undefined) {
+        throw new NotFoundError("issue")
+      }
+
+      const [target] = await tx
+        .select()
+        .from(schema.label)
+        .where(
+          and(
+            eq(schema.label.workspaceId, this.workspaceId),
+            eq(schema.label.id, labelId),
+          ),
+        )
+        .for("key share")
+        .limit(1)
+
+      if (target === undefined) {
+        throw new NotFoundError("label")
+      }
+
+      const scope = labelScope(target.teamId === null ? null : (target.teamId as TeamId))
+
+      if (!labelAppliesToTeam(scope, issue.teamId as TeamId)) {
+        throw new InvalidLabelError("the label belongs to another team")
+      }
+
+      const inserted = await tx
+        .insert(schema.issueLabel)
+        .values({ workspaceId: this.workspaceId, issueId, labelId })
+        .onConflictDoNothing()
+        .returning({ labelId: schema.issueLabel.labelId })
+
+      if (inserted.length === 0) {
+        return {
+          labels: await this.issueLabels(tx, issueId),
+          version: issue.version,
+          seq: null,
+        }
+      }
+
+      return this.bumpIssueForLabels(tx, issue, actorId, issueId)
+    })
+  }
+
+  async detachLabel(issueId: string, labelId: string, actorId: ActorId) {
+    return this.db.transaction(async (tx) => {
+      const [issue] = await tx
+        .select()
+        .from(schema.issue)
+        .where(
+          and(
+            eq(schema.issue.workspaceId, this.workspaceId),
+            eq(schema.issue.id, issueId),
+          ),
+        )
+        .for("update")
+        .limit(1)
+
+      if (issue === undefined) {
+        throw new NotFoundError("issue")
+      }
+
+      const [target] = await tx
+        .select()
+        .from(schema.label)
+        .where(
+          and(
+            eq(schema.label.workspaceId, this.workspaceId),
+            eq(schema.label.id, labelId),
+          ),
+        )
+        .for("key share")
+        .limit(1)
+
+      if (target === undefined) {
+        throw new NotFoundError("label")
+      }
+
+      const scope = labelScope(target.teamId === null ? null : (target.teamId as TeamId))
+
+      if (!labelAppliesToTeam(scope, issue.teamId as TeamId)) {
+        throw new InvalidLabelError("the label belongs to another team")
+      }
+
+      const removed = await tx
+        .delete(schema.issueLabel)
+        .where(
+          and(
+            eq(schema.issueLabel.workspaceId, this.workspaceId),
+            eq(schema.issueLabel.issueId, issueId),
+            eq(schema.issueLabel.labelId, labelId),
+          ),
+        )
+        .returning({ labelId: schema.issueLabel.labelId })
+
+      if (removed.length === 0) {
+        return {
+          labels: await this.issueLabels(tx, issueId),
+          version: issue.version,
+          seq: null,
+        }
+      }
+
+      return this.bumpIssueForLabels(tx, issue, actorId, issueId)
+    })
+  }
+
+  private async bumpIssueForLabels(
+    tx: Transaction,
+    issue: typeof schema.issue.$inferSelect,
+    actorId: ActorId,
+    issueId: string,
+  ) {
+    const updatedAt = new Date()
+
+    const [updated] = await tx
+      .update(schema.issue)
+      .set({ version: sql`${schema.issue.version} + 1`, updatedAt })
+      .where(
+        and(
+          eq(schema.issue.workspaceId, this.workspaceId),
+          eq(schema.issue.id, issueId),
+        ),
+      )
+      .returning({ version: schema.issue.version })
+
+    if (updated === undefined) {
+      throw new NotFoundError("issue")
+    }
+
+    const labels = await this.issueLabels(tx, issueId)
+
+    const patch = {
+      labels: labels.map((label) => ({
+        id: label.id,
+        teamId: label.teamId,
+        name: label.name,
+        color: label.color,
+      })),
+      version: updated.version,
+      updatedAt: updatedAt.toISOString(),
+    }
+
+    if (new TextEncoder().encode(JSON.stringify(patch)).length > MAX_PATCH_BYTES) {
+      throw new InvalidLabelError("this issue has too many labels to sync in one change")
+    }
+
+    const seq = await appendChangeset(tx, this.workspaceId, actorId, [
+      {
+        entity: "issue",
+        id: issueId,
+        teamId: issue.teamId,
+        op: "update",
+        patch,
+      },
+    ])
+
+    return { labels, version: updated.version, seq }
   }
 
   async latestSeq(): Promise<number> {

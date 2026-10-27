@@ -35,6 +35,15 @@ export type Member = {
 
 export type Priority = "none" | "urgent" | "high" | "medium" | "low"
 
+export const labelSchema = z.object({
+  id: z.string(),
+  teamId: z.string().nullable(),
+  name: z.string(),
+  color: z.string(),
+})
+
+export type Label = z.infer<typeof labelSchema>
+
 export const issueSummarySchema = z.object({
   id: z.string(),
   teamId: z.string(),
@@ -53,6 +62,7 @@ export type IssueSummary = z.infer<typeof issueSummarySchema>
 
 export const issueSchema = issueSummarySchema.extend({
   workspaceId: z.string(),
+  labels: z.array(labelSchema),
   description: z.string(),
   creatorId: z.string(),
   projectId: z.string().nullable(),
@@ -88,6 +98,7 @@ export type Bootstrap = {
   states: WorkflowState[]
   members: Member[]
   issues: IssueSummary[]
+  labels: Label[]
   actor: {
     id: string
     kind: "user" | "agent"
@@ -109,4 +120,15 @@ export type CreateIssueBody = {
   title: string
   description?: string
   priority?: Priority
+}
+
+export type CreateLabelBody = {
+  name: string
+  color: string
+  teamId?: string
+}
+
+export type UpdateLabelBody = {
+  name?: string
+  color?: string
 }

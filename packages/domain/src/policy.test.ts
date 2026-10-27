@@ -24,11 +24,13 @@ describe("human roles", () => {
     expect(can(human("admin"), "workspace:manage")).toBe(false)
     expect(can(human("admin"), "member:manage")).toBe(true)
     expect(can(human("admin"), "team:manage", eng)).toBe(true)
+    expect(can(human("admin"), "label:manage")).toBe(true)
   })
 
   test("members work on issues and nothing else", () => {
     expect(can(human("member"), "issue:read", eng)).toBe(true)
     expect(can(human("member"), "issue:comment", eng)).toBe(true)
+    expect(can(human("member"), "label:manage")).toBe(false)
     expect(can(human("member"), "member:manage")).toBe(false)
     expect(can(human("member"), "agent:manage")).toBe(false)
   })
@@ -52,6 +54,7 @@ describe("team scope", () => {
 
   test("workspace actions ignore team scope", () => {
     expect(can(human("admin", [eng]), "member:manage")).toBe(true)
+    expect(can(human("owner", [eng]), "label:manage")).toBe(true)
   })
 
   test("only issue and team actions are team scoped", () => {

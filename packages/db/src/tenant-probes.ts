@@ -12,6 +12,7 @@ export type TenantFixture = {
   readonly stateId: string
   readonly issueId: string
   readonly commentId: string
+  readonly labelId: string
 }
 
 export type TenantProbe = {
@@ -47,6 +48,16 @@ export const tenantProbes: readonly TenantProbe[] = [
     run: (tenant, foreign) => tenant.commentsForIssue(foreign.issueId),
   },
   {
+    name: "listLabels",
+    expect: "no-leak",
+    run: (tenant) => tenant.listLabels(),
+  },
+  {
+    name: "labelsForIssue",
+    expect: "no-leak",
+    run: (tenant, foreign) => tenant.labelsForIssue(foreign.issueId),
+  },
+  {
     name: "latestSeq",
     expect: "no-leak",
     run: (tenant) => tenant.latestSeq(),
@@ -78,5 +89,65 @@ export const tenantProbes: readonly TenantProbe[] = [
         title: "hijacked",
         creatorId: foreign.actorId,
       }),
+  },
+  {
+    name: "createLabel with a foreign team",
+    expect: "rejects",
+    run: (tenant, foreign) =>
+      tenant.createLabel({
+        teamId: foreign.teamId,
+        name: "hijacked",
+        color: "#d73a4a",
+        actorId: foreign.actorId,
+      }),
+  },
+  {
+    name: "updateLabel with a foreign id",
+    expect: "rejects",
+    run: (tenant, foreign) =>
+      tenant.updateLabel(foreign.labelId, { name: "hijacked" }, foreign.actorId),
+  },
+  {
+    name: "deleteLabel with a foreign id",
+    expect: "rejects",
+    run: (tenant, foreign) => tenant.deleteLabel(foreign.labelId, foreign.actorId),
+  },
+  {
+    name: "attachLabel with a foreign issue",
+    expect: "rejects",
+    run: (tenant, foreign) =>
+      tenant.attachLabel(foreign.issueId, foreign.labelId, foreign.actorId),
+  },
+  {
+    name: "attachLabel with a foreign label",
+    expect: "rejects",
+    run: async (tenant, foreign) => {
+      const [issue] = await tenant.listIssues()
+
+      if (issue === undefined) {
+        throw new Error("the probe needs a local issue")
+      }
+
+      return tenant.attachLabel(issue.id, foreign.labelId, foreign.actorId)
+    },
+  },
+  {
+    name: "detachLabel with a foreign issue",
+    expect: "rejects",
+    run: (tenant, foreign) =>
+      tenant.detachLabel(foreign.issueId, foreign.labelId, foreign.actorId),
+  },
+  {
+    name: "detachLabel with a foreign label",
+    expect: "rejects",
+    run: async (tenant, foreign) => {
+      const [issue] = await tenant.listIssues()
+
+      if (issue === undefined) {
+        throw new Error("the probe needs a local issue")
+      }
+
+      return tenant.detachLabel(issue.id, foreign.labelId, foreign.actorId)
+    },
   },
 ]

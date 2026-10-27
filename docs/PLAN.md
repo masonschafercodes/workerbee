@@ -366,14 +366,14 @@ explicit step, never on worker boot.
 ## Current phase
 
 **Phase 1, core loop.** Phase 0 is complete. Landed: workspaces, teams, membership, issues,
-workflow states, priorities, comments, changesets, `/sync`, the hub WebSocket, and two-way live
-updates. The dev environment is deployed at the configured hostname. PostHog captures web
+workflow states, priorities, comments, labels, changesets, `/sync`, the hub WebSocket, and two-way
+live updates. The dev environment is deployed at the configured hostname. PostHog captures web
 analytics, exceptions, structured logs, and feature flags in dev. Agent actors exist in the domain
 and policy, with no agent-facing surface yet.
 
 Phase 1 still needs:
 
-- Labels and issue relations in the repository, changesets, sync, and UI. The label tables exist.
+- Issue relations in the repository, changesets, sync, and UI.
 - A board view, keyboard navigation, and the command palette.
 - The exit check between two browsers: one issue moves and one comment appears without a refresh.
 
@@ -439,7 +439,7 @@ expensive once data exists.
 
 ## Immediate next steps
 
-1. Add labels and issue relations through the repository, changesets, sync, and UI.
+1. Add issue relations through the repository, changesets, sync, and UI.
 2. Build the board view, keyboard navigation, and the command palette.
 3. Verify the Phase 1 exit in two browsers: move an issue and post a comment, both without a
    refresh.

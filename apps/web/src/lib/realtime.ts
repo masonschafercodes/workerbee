@@ -4,8 +4,8 @@ import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { api } from "./api"
 import { keys } from "./hooks"
-import { applyChangesetToBootstrap } from "./realtime-cache"
-import { commentSchema, issueSchema, type Bootstrap, type Comment, type Issue } from "./types"
+import { applyChangesetToBootstrap, applyIssueDetailChange } from "./realtime-cache"
+import { commentSchema, type Bootstrap, type Comment, type Issue } from "./types"
 
 const INITIAL_RECONNECT_MS = 500
 const MAX_RECONNECT_MS = 30_000
@@ -60,12 +60,12 @@ export function useRealtime(slug: string, ready: boolean): void {
       if (change.op === "delete") {
         void queryClient.invalidateQueries({ queryKey: key })
       } else if (current !== undefined) {
-        const parsed = issueSchema.safeParse({ ...current, ...change.patch })
+        const next = applyIssueDetailChange(current, change)
 
-        if (parsed.success) {
-          queryClient.setQueryData(key, parsed.data)
-        } else {
+        if (next === null) {
           void queryClient.invalidateQueries({ queryKey: key })
+        } else {
+          queryClient.setQueryData(key, next)
         }
       }
     }
@@ -119,10 +119,21 @@ export function useRealtime(slug: string, ready: boolean): void {
       queryClient.setQueryData(key, next)
     }
 
+    function updateLabelCaches(change: Change): void {
+      if (change.entity !== "label") {
+        return
+      }
+
+      // An open issue carries label names and colors inline. A rename or
+      // recolor does not touch the issue row, so refresh what is on screen.
+      void queryClient.invalidateQueries({ queryKey: ["issue", slug] })
+    }
+
     function updateEntityCaches(changeset: Changeset): void {
       for (const change of changeset.changes) {
         updateIssueDetail(change)
         updateComments(change)
+        updateLabelCaches(change)
       }
     }
 

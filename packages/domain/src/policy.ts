@@ -8,6 +8,7 @@ export const ACTIONS = [
   "issue:read",
   "issue:write",
   "issue:comment",
+  "label:manage",
   "agent:manage",
 ] as const
 
@@ -28,6 +29,7 @@ const ROLE_ACTIONS: Readonly<Record<WorkspaceRole, readonly Action[]>> = {
     "issue:read",
     "issue:write",
     "issue:comment",
+    "label:manage",
     "agent:manage",
   ],
   member: ["issue:read", "issue:write", "issue:comment"],
